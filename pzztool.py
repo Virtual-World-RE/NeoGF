@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 __version__ = "1.0"
-__author__  = "rigodron, algoflash"
+__author__  = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 
 from pathlib import Path
 from struct import unpack
 
 
-def pzz_decompress(b):
-    bout = bytearray()
-    size_b = len(b)
+def pzz_decompress(compressed_bytes: bytes):
+    uncompressed_bytes = bytearray()
+    compressed_bytes_size = len(compressed_bytes) // 2 * 2
 
     cb = 0  # Control bytes
     cb_bit = -1
     i = 0
-    while i < size_b:
+    while i < compressed_bytes_size:
         if cb_bit < 0:
-            cb  = b[i + 1]
-            cb |= b[i + 0] << 8
+            cb  = compressed_bytes[i + 1]
+            cb |= compressed_bytes[i + 0] << 8
             cb_bit = 15
             i += 2
             continue
@@ -27,26 +27,35 @@ def pzz_decompress(b):
 
         print(compress_flag)
         if compress_flag:
-            c  = b[i + 1]
-            c |= b[i + 0] << 8
+            c  = compressed_bytes[i + 1]
+            c |= compressed_bytes[i + 0] << 8
             offset = (c & 0x7FF) * 2
             if offset == 0:
                 break # End of the compressed data
             count = (c >> 11) * 2
             if count == 0:
                 i += 2
-                c  = b[i + 1]
-                c |= b[i + 0] << 8
+                c  = compressed_bytes[i + 1]
+                c |= compressed_bytes[i + 0] << 8
                 count = c * 2
 
-            index = len(bout) - offset
+            index = len(uncompressed_bytes) - offset
             for j in range(count):
-                bout.append(bout[index + j])
+                uncompressed_bytes.append(uncompressed_bytes[index + j])
         else:
-            bout.extend(b[i: i + 2])
+            uncompressed_bytes.extend(compressed_bytes[i: i + 2])
         i += 2
 
-    return bout
+    return uncompressed_bytes
+
+
+def bytes_align(bout: bytes):
+    success = False
+    while not success:
+        bout.extend(b"\x00\x00")
+        address = len(bout)
+        if hex(address).endswith("00"):
+            break
 
 
 def pzz_compress(b):
@@ -60,7 +69,7 @@ def pzz_compress(b):
 
     i = 0
     while i < size_b:
-        start = max(i - 0x3FF * 2, 0)
+        start = max(i - 0x7FF * 2, 0)
         count_r = 0
         max_i = -1
         tmp = b[i: i + 2]
@@ -73,9 +82,9 @@ def pzz_compress(b):
             if start != -1:
                 count = init_count
                 while i < size_b - count \
-                    and count < 0xFFFF * 2 \
-                    and b[start + count    ] == b[i + count    ] \
-                    and b[start + count + 1] == b[i + count + 1]:
+                        and count < 0xFFFF * 2 \
+                        and b[start + count] == b[i + count] \
+                        and b[start + count + 1] == b[i + count + 1]:
                     count += 2
                 if count_r < count:
                     count_r = count
@@ -120,6 +129,8 @@ def pzz_compress(b):
     bout[cb_pos + 0] = cb >> 8
     bout.extend(b"\x00\x00")
 
+    bytes_align(bout)
+
     return bout
 
 
@@ -131,7 +142,7 @@ def pzz_unpack(path, dir_path):
         file_count, = unpack(">I", file_count) # < big-endian uint32
 
         #file_count contient la taille en groupes de 4 octets
-        
+
         size = f.read(file_count * 4)
         # size contient l'ensemble des octets du fichier
         size = unpack(">{}I".format(file_count), size)
