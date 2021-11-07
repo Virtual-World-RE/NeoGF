@@ -3,8 +3,9 @@ __version__ = "1.0"
 __author__  = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 
+from os import listdir, path, stat
 from pathlib import Path
-from struct import unpack
+from struct import unpack, pack
 
 
 def pzz_decompress(compressed_bytes: bytes):
@@ -153,9 +154,9 @@ def pzz_unpack(path, dir_path):
         offset = 0x800
         for i, s in enumerate(size): # on a un ensemble d'uint32 et leur index qu'on parcours
             is_compressed = (s & 0x40000000) != 0 # "and" avec le bit du poids le plus fort
-            #print(s)
+            print(s)
             s &= 0x3FFFFFFF # s contient maintenant tous les bits sans le bit du poids le plus fort
-            #print(s & 0x3FFFFFFF)
+            print(s)
             s *= 0x800 # 1000 0000 0000
             # s doit contenir la taille du fichier
             #print( s )
@@ -173,21 +174,100 @@ def pzz_unpack(path, dir_path):
             p.write_bytes(f.read(s))
             offset += s
 
+def pzz_pack(src, dir_path):
+    bout = bytearray()
+    filebout = bytearray()
+    file_count = 0;
+    files = []
+
+    linkPath = path.normpath(dir_path)
+    linkFiles = [f for f in listdir(linkPath) if path.isfile(path.join(linkPath, f))]
+
+    for file in linkFiles:
+        if (str(src)[12:-18] in file):
+            file_count += 1
+            files.append(file)
+
+    is_odd_number = (file_count % 2) != 0
+
+    if (file_count == 6 or file_count == 12):
+        file_count += 4
+        for i, file in enumerate(files):
+            count = int(0x40 << 24) + int(path.getsize(linkPath + "/" + file) / 0x800)
+
+            if (i == 1 or i == 3 or i == 5 or i == 7):
+                filebout.extend(b"\x00\x00\x00\x00")
+                filebout.extend(pack(">I", count))
+            else:
+                filebout.extend(pack(">I", count))
+
+        file_count = pack(">I", file_count)
+        bout.extend(file_count)
+        bout.extend(filebout)
+
+    elif (file_count == 6 or file_count == 14):
+        file_count += 2
+        for i, file in enumerate(files):
+            count = int(0x40 << 24) + int(path.getsize(linkPath + "/" + file) / 0x800)
+
+            if (i == 1 or i == 3):
+                filebout.extend(b"\x00\x00\x00\x00")
+                filebout.extend(pack(">I", count))
+            else:
+                filebout.extend(pack(">I", count))
+
+        file_count = pack(">I", file_count)
+        bout.extend(file_count)
+        bout.extend(filebout)
+
+    elif is_odd_number:
+        file_count += 1
+        for i, file in enumerate(files):
+            count = int(0x40 << 24) + int(path.getsize(linkPath + "/" + file) / 0x800)
+
+            if (i == 1):
+                filebout.extend(b"\x00\x00\x00\x00")
+                filebout.extend(pack(">I", count))
+            else:
+                filebout.extend(pack(">I", count))
+
+        file_count = pack(">I", file_count)
+        bout.extend(file_count)
+        bout.extend(filebout)
+
+    success = False
+
+    while not success:
+        bout.extend(b"\x00\x00")
+        address = len(bout)
+        if hex(address).endswith("800"):
+            break
+    for file in files:
+        filebout = open(linkPath + "/" + file, "rb")
+        data = filebout.read()
+        bout.extend(data)
+    filename = "{}".format(str(src)[12:-19])
+    p = (Path(dir_path) / filename).with_suffix(".pzz")
+    p.write_bytes(bout)
+
+def pzz_test():
+    print(pack(">I", int(0x40 << 24) + int(stat(linkPath + "/" + file).st_size) / 0x800))
 
 def get_argparser():
     import argparse
     parser = argparse.ArgumentParser(description='PZZ (de)compressor & unpacker - [GameCube] Gotcha Force v' + __version__)
     parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
-    parser.add_argument('input_path', metavar='INPUT', help='only relative if -bu, -bc, -bd')
+    parser.add_argument('input_path', metavar='INPUT', help='only relative if -bu, -bc, -bd, p')
     parser.add_argument('output_path', metavar='OUTPUT', help='directory if -u, -bu, -bc, -bd')
     group = parser.add_mutually_exclusive_group(required=True)
-    #group.add_argument('-p', '--pack', action='store_true')
     group.add_argument('-u', '--unpack', action='store_true', help='PZZ files from AFS')
     group.add_argument('-c', '--compress', action='store_true')
     group.add_argument('-d', '--decompress', action='store_true', help='Unpacked files from PZZ')
     group.add_argument('-bu', '--batch-unpack', action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*.pzz')
     group.add_argument('-bc', '--batch-compress', action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*.bin')
     group.add_argument('-bd', '--batch-decompress', action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*_compressed.dat')
+    group.add_argument('-p', '--pack', action='store_true')
+    group.add_argument('-t', '--test', action='store_true')
     return parser
 
 
@@ -225,8 +305,12 @@ if __name__ == '__main__':
                 (p_output / filename.name).with_suffix(".bin").write_bytes(pzz_decompress(b))
             except IndexError:
                 print("! Wrong PZZ file")
-    #elif args.pack:
-    #    pass
+    elif args.pack:
+        print("### Pack")
+        p_output.mkdir(exist_ok=True)
+        pzz_pack(p_input, p_output)
+    elif args.test:
+        pzz_test()
     elif args.unpack:
         print("### Unpack")
         p_output.mkdir(exist_ok=True)
@@ -242,3 +326,4 @@ if __name__ == '__main__':
             print(filename)
             pzz_unpack(filename, p_output)
 
+            
