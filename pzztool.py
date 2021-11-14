@@ -136,40 +136,54 @@ def pzz_compress(b):
 
 
 def pzz_unpack(path, dir_path):
-    """ BMS script: https://zenhax.com/viewtopic.php?f=9&t=8724&p=39437#p39437
-    """
-    with open(path, "rb") as f:
-        file_count = f.read(4) # file_count contient le nombre de fichiers dans le PZZ
-        file_count, = unpack(">I", file_count) # big-endian uint32
+    # Script BMS pour les pzz de ps2 (GioGio's adventure) -> https://zenhax.com/viewtopic.php?f=9&t=8724&p=39437#p39437
 
-        size = f.read(file_count * 4)
-        # size contient l'ensemble des descripteurs de fichiers du header PZZ
-        size = unpack(">{}I".format(file_count), size)
-        # size contient les descripteurs de fichiers au format uint32
+    with open(path, "rb") as f:
+        # file_count reçoit le nombre de fichiers présent dans le PZZ :
+        file_count, = unpack(">I", f.read(4)) # On lit les 4 premiers octets (uint32 big-endian)
+
+        # files_descriptors reçoit un tuple avec l'ensemble des descripteurs de fichiers (groupes d'uint32 big-endian)
+        files_descriptors = unpack(">{}I".format(file_count), f.read(file_count * 4))
 
         print("File count:", file_count)
 
         offset = 0x800
-        # Le PZZ contient le header et les fichiers séparés tous les 0x800
-        for i, s in enumerate(size): # on a un ensemble d'uint32 et leur index qu'on parcours
-            is_compressed = (s & 0x40000000) != 0 # "& bit à bit" avec le bit de compression (bit30)
-            
-            s &= 0x3FFFFFFF # s contient maintenant la taille du fichier sans les bits de flag (bit30, bit31)
-            s *= 0x800 # taille fichier * 0x800
+        for i, file_descriptor in enumerate(files_descriptors): # on parcours le tuple de descripteurs de fichiers
 
-            if s == 0:
+            is_compressed = (file_descriptor & 0x40000000) != 0 # Le bit 30 correspond au flag de compression (bits numérotés de 0 à 31)
+            print(file_descriptor)
+
+            # file_descriptor reçoit maintenant les 30 premiers bits : (la taille / 0x800) 
+            file_descriptor &= 0x3FFFFFFF 
+            print(file_descriptor)
+
+            # file_len reçoit la taille du fichier
+            # la taille du fichier est un multiple de 0x800, on paddera avec des 0 jusqu'au fichier suivant
+            file_len = file_descriptor * 0x800 # file_len contient alors la taille du fichier en octets
+            
+            # Si la taille est nulle, on passe au descripteur de fichier suivant
+            if file_len == 0:
                 continue
+
+            # Si le fichier est compressé, on ajoute "_compressed" devant l'extension
             comp_str = ""
             if is_compressed:
                 comp_str = "_compressed"
+
+            # On forme le nom du nouveau fichier que l'on va extraire
             filename = "{}_{:03}{}".format(Path(path).stem, i, comp_str)
-            p = (Path(dir_path) / filename).with_suffix(".dat")
+            file_path = (Path(dir_path) / filename).with_suffix(".dat")
 
-            print("Offset: {:010} - {}".format(offset, p))
+            print("Offset: {:010} - {}".format(offset, file_path))
 
+            # On se positionne au début du fichier dans l'archive
             f.seek(offset)
-            p.write_bytes(f.read(s))
-            offset += s
+            # On extrait notre fichier
+            file_path.write_bytes(f.read(file_len))
+
+            # Enfin, on ajoute la taille du fichier afin de pointer sur le fichier suivant
+            # La taille du fichier étant un multiple de 0x800, on aura complété les 2048 octets finaux avec des 0x00
+            offset += file_len
 
 def pzz_pack(src, dir_path):
     bout = bytearray()
