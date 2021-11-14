@@ -139,27 +139,24 @@ def pzz_unpack(path, dir_path):
     """ BMS script: https://zenhax.com/viewtopic.php?f=9&t=8724&p=39437#p39437
     """
     with open(path, "rb") as f:
-        file_count = f.read(4)
-        file_count, = unpack(">I", file_count) # < big-endian uint32
-
-        #file_count contient la taille en groupes de 4 octets
+        file_count = f.read(4) # file_count contient le nombre de fichiers dans le PZZ
+        file_count, = unpack(">I", file_count) # big-endian uint32
 
         size = f.read(file_count * 4)
-        # size contient l'ensemble des octets du fichier
+        # size contient l'ensemble des descripteurs de fichiers du header PZZ
         size = unpack(">{}I".format(file_count), size)
-        # size contient le fichier par groupes d'uint32
+        # size contient les descripteurs de fichiers au format uint32
 
         print("File count:", file_count)
 
         offset = 0x800
+        # Le PZZ contient le header et les fichiers séparés tous les 0x800
         for i, s in enumerate(size): # on a un ensemble d'uint32 et leur index qu'on parcours
-            is_compressed = (s & 0x40000000) != 0 # "and" avec le bit du poids le plus fort
-            print(s)
-            s &= 0x3FFFFFFF # s contient maintenant tous les bits sans le bit du poids le plus fort
-            print(s)
-            s *= 0x800 # 1000 0000 0000
-            # s doit contenir la taille du fichier
-            #print( s )
+            is_compressed = (s & 0x40000000) != 0 # "& bit à bit" avec le bit de compression (bit30)
+            
+            s &= 0x3FFFFFFF # s contient maintenant la taille du fichier sans les bits de flag (bit30, bit31)
+            s *= 0x800 # taille fichier * 0x800
+
             if s == 0:
                 continue
             comp_str = ""
