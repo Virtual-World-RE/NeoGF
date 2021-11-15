@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-__version__ = "1.1"
+__version__ = "1.2"
 __author__  = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 
@@ -136,9 +136,15 @@ def pzz_compress(b):
 
     return bout
 
-def pzz_unpack(pzz_path):
+def pzz_unpack(pzz_path, dest_folder):
     # Script BMS pour les pzz de ps2 (GioGio's adventure) -> https://zenhax.com/viewtopic.php?f=9&t=8724&p=39437#p39437
-    unpacked_pzz_path = Path( Path(pzz_path).stem )
+    if pzz_path.suffix != ".pzz" :
+        raise("Unpack - Invalid file format" + pzz_path.suffix + " ; unpack take only .pzz fileformat")
+    
+    if dest_folder != Path('.') :
+        unpacked_pzz_path = dest_folder
+    else :
+        unpacked_pzz_path = pzz_path.parent / pzz_path.stem
     unpacked_pzz_path.mkdir(exist_ok=True)
 
     with open(pzz_path, "rb") as pzz_file:
@@ -151,9 +157,15 @@ def pzz_unpack(pzz_path):
         print("File count:", file_count)
 
         offset = CHUNK_SIZE
-        for i, file_descriptor in enumerate(files_descriptors): # on parcours le tuple de descripteurs de fichiers
+        for index, file_descriptor in enumerate(files_descriptors): # on parcours le tuple de descripteurs de fichiers
 
             is_compressed = (file_descriptor & BIT_COMPRESSION_FLAG) != 0 # Le bit 30 correspond au flag de compression (bits numérotés de 0 à 31)
+            if not is_compressed : # Si le fichier n'est pas compressé, on ajoute 'U' derrière l'index
+                compression_status = 'U'
+                comp_str = ""
+            else : # Si le fichier est compressé, on ajoute "_compressed" devant l'extension et 'C' derrière l'index
+                compression_status = 'C'
+                comp_str = "_compressed"
 
             # file_descriptor reçoit maintenant les 30 premiers bits : (la taille / CHUNK_SIZE) 
             file_descriptor &= FILE_LENGTH_MASK
@@ -162,20 +174,16 @@ def pzz_unpack(pzz_path):
             # la taille du fichier est un multiple de CHUNK_SIZE, on paddera avec des 0 jusqu'au fichier suivant
             file_len = file_descriptor * CHUNK_SIZE # file_len contient alors la taille du fichier en octets
             
-            # Si la taille est nulle, on passe au descripteur de fichier suivant
-            if file_len == 0:
-                continue
-
-            # Si le fichier est compressé, on ajoute "_compressed" devant l'extension
-            comp_str = ""
-            if is_compressed:
-                comp_str = "_compressed"
-
             # On forme le nom du nouveau fichier que l'on va extraire
-            filename = "{}_{:03}{}".format(Path(pzz_path).stem, i, comp_str)
-            file_path = (Path(unpacked_pzz_path) / filename).with_suffix(".dat")
+            filename = "{:03}{}_{}{}".format(index, compression_status, pzz_path.stem, comp_str)
+            file_path = (unpacked_pzz_path / filename).with_suffix(".dat")
 
-            print("Offset: {:010} - {}".format(offset, file_path))
+            print("Offset: {:010} - {}".format(offset, file_path.stem))
+
+            # Si la taille est nulle, on créé un fichier vide et on passe au descripteur de fichier suivant
+            if file_len == 0:
+                file_path.touch()
+                continue
 
             # On se positionne au début du fichier dans l'archive
             pzz_file.seek(offset)
@@ -186,29 +194,40 @@ def pzz_unpack(pzz_path):
             # La taille du fichier étant un multiple de CHUNK_SIZE, on aura complété les 2048 octets finaux avec des 0x00
             offset += file_len
 
-def pzz_pack(src_path):
+def pzz_pack(src_path, dest_file):
     # On récupère les fichiers du dossier à compresser
     src_files = listdir(src_path)
 
     # On récupère le nombre total de fichiers
-    file_count = int(src_files[-1].split("_")[1][0:3]) + 1
+    file_count = int(src_files[-1].split("_")[0][0:3]) + 1
 
-    print(str(file_count) + " files to pack in " + str(src_path.with_suffix(".pzz")))
+    if dest_file != Path('.') :
+        if dest_file.suffix != ".pzz":
+            raise("Invalid file format : dest must be a pzz")
+        pzz_path = dest_file
+    else :
+        pzz_path = src_path.with_suffix(".pzz")
 
-    with src_path.with_suffix(".pzz").open("wb") as pzz_file :
+    print(str(file_count) + " files to pack in " + str(pzz_path))
+    
+    with pzz_path.open("wb") as pzz_file :
         # On écrit file_count au début de header
         pzz_file.write(file_count.to_bytes(4, byteorder='big'))
 
         # On écrit les file_descriptor dans le header du PZZ pour chaque fichier
-        last_index = 0 # permet d'ajouter les file_descriptor=NULL
         for src_file_name in src_files :
-            index = int(src_file_name.split("_")[1][0:3])
-            is_compressed = ( len(src_file_name.split("_compressed")) > 1 )
+            index = int(src_file_name.split("_")[0][0:3])
 
-            # On ajoute les file_descriptor=NULL
-            while(last_index < index):
-                pzz_file.write(b"\x00\x00\x00\x00")
-                last_index += 1
+            # Compression status permet de verrifier si le fichier doit être finalement compressé ou non
+            compression_status = src_file_name.split("_")[0][3:4]
+            is_compressed = ( len(src_file_name.split("_compressed")) > 1 )
+            
+            # Le fichier doit être compressé avant d'être pack
+            if   compression_status == 'C' and is_compressed == False :
+                pass
+            # Le fichier doit être décompressé avant d'être pack
+            elif compression_status == 'U' and is_compressed == True :
+                pass
 
             # file_descriptor = arrondi supérieur de la taille / CHUNK_SIZE
             file_descriptor = ceil( (src_path / src_file_name).stat().st_size / CHUNK_SIZE)
@@ -219,7 +238,6 @@ def pzz_pack(src_path):
 
             # On ecrit le file_descriptor
             pzz_file.write(file_descriptor.to_bytes(4, byteorder='big'))
-            last_index += 1
 
         # On se place à la fin du header PZZ
         pzz_file.seek(CHUNK_SIZE)
@@ -238,26 +256,28 @@ def pzz_pack(src_path):
 def get_argparser():
     import argparse
     parser = argparse.ArgumentParser(description='PZZ (de)compressor & unpacker - [GameCube] Gotcha Force v' + __version__)
-    parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
-    parser.add_argument('input_path',  metavar='INPUT',  help='only relative if -bu, -bc, -bd, p')
-    parser.add_argument('output_path', metavar='OUTPUT', help='directory if -u, -bu, -bc, -bd')
+    parser.add_argument('--version',   action='version', version='%(prog)s ' + __version__)
+    parser.add_argument('input_path',  metavar='INPUT',  help='')
+    parser.add_argument('output_path', metavar='OUTPUT', help='', nargs='?', default="")
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-u', '--unpack',            action='store_true', help='-u source_pzz.pzz : Unpack the pzz in source_pzz folder')
-    group.add_argument('-p', '--pack',              action='store_true', help="-p source_folder : Pack source_folder in source_folder.pzz")
-    group.add_argument('-c', '--compress',          action='store_true', help='')
-    group.add_argument('-d', '--decompress',        action='store_true', help='Unpacked files from PZZ')
+    group.add_argument('-p', '--pack',              action='store_true', help="-p source_folder dest_file.pzz(optionnal) : Pack source_folder in new file source_folder.pzz")
+    group.add_argument('-u', '--unpack',            action='store_true', help='-u source_folder.pzz dest_folder(optionnal) : Unpack the pzz in new folder source_folder')
+    group.add_argument('-bp', '--batch-pack',       action='store_true', help='-bp source_folder dest_folder(optionnal - if not specified it will pack in source_folder)')
     group.add_argument('-bu', '--batch-unpack',     action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*.pzz')
-    group.add_argument('-bc', '--batch-compress',   action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*.bin')
-    group.add_argument('-bd', '--batch-decompress', action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*_compressed.dat')
+
+    #group.add_argument('-a', '-aa',action='store_true', help='sha256')
+    #group.add_argument('-c', '--compress',          action='store_true', help='')
+    #group.add_argument('-d', '--decompress',        action='store_true', help='Unpacked files from PZZ')
+    #group.add_argument('-bc', '--batch-compress',   action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*.bin')
+    #group.add_argument('-bd', '--batch-decompress', action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*_compressed.dat')
     return parser
 
 if __name__ == '__main__':
-    import sys
-    parser = get_argparser()
-    args   = parser.parse_args()
+    args     = get_argparser().parse_args()
 
     p_input  = Path(args.input_path)
     p_output = Path(args.output_path)
+    """
     if   args.compress:
         print("### Compress")
         p_output.write_bytes(pzz_compress(p_input.read_bytes()))
@@ -285,19 +305,32 @@ if __name__ == '__main__':
                 (p_output / filename.name).with_suffix(".bin").write_bytes(pzz_decompress(b))
             except IndexError:
                 print("! Wrong PZZ file")
-    elif args.pack:
+    el
+    """
+    if args.pack:
         print("### Pack")
-        pzz_pack(p_input)
+        pzz_pack(p_input, p_output)
     elif args.unpack:
         print("### Unpack")
-        pzz_unpack(p_input)
-    #elif args.batch_pack:
-    #    pass
+        pzz_unpack(p_input, p_output)
+    elif args.batch_pack:
+        print("### Batch Pack")
+        p_output.mkdir(exist_ok=True)
+
+        for folder in listdir(p_input):
+            pzz_pack( p_input / folder, p_output / Path(folder).with_suffix(".pzz"))
     elif args.batch_unpack:
         print("### Batch Unpack")
         p_output.mkdir(exist_ok=True)
 
-        p = Path('.')
-        for filename in p.glob(args.input_path):
-            print(filename)
-            pzz_unpack(filename, p_output)
+        for filename in listdir(p_input):
+            pzz_unpack(p_input / filename, p_output / Path(filename).stem)
+
+    """
+        compare le sha256 de chaque PZZ du dossier pzz et pzz2 puis affiche le nom de fichier en cas de différence
+    import hashlib
+    for pzz_file in listdir("pzz"):
+        with open("pzz/"+pzz_file, "rb") as f1, open("pzz2/"+pzz_file, "rb") as f2:
+            if hashlib.sha256( f1.read() ).hexdigest() != hashlib.sha256( f2.read() ).hexdigest() :
+                print(pzz_file)
+    """
