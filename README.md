@@ -28,10 +28,10 @@ pzztool.py -bp source_folder optional_dest_folder
 Every file extracted has a name using the format :
 
 AAAB_CD.E
-- AAA is the 3 digits index of the file in the PZZ starting at 000.
-- B describe the compression state of the file when packed in the PZZ. If compressed it's **C** and if not it's **U**.
-- C is the name of the PZZ.
-- D describe the actual compression state of the file. It's **\_compressed** if the file is compressed and nothing if the file is uncompressed.
-- E is the extension of the file. By default it is **.dat**
+- **AAA** is the 3 digits index of the file in the PZZ starting at 000.
+- **B** describe the compression state of the file when packed in the PZZ. If compressed it's **C** and if not it's **U**.
+- **C** is the name of the PZZ.
+- **D** describe the actual compression state of the file. It's **\_compressed** if the file is compressed and nothing if the file is uncompressed.
+- **E** is the extension of the file. By default it is **.dat**
 
-For example file 012C_cmn_data.dat describe the 13th file off the pzz initialy compressed in a pzz named "cmn_data.pzz" and that has been uncompressed with the default format "dat". The names of unpacked files and the presence of empty unpacked files are important to keep informations relative to the initial pzz and ensure a correct pack.
+For example file _012C_cmn_data.dat_ describe the 13th file off the pzz initialy compressed in a pzz named "cmn_data.pzz" and that has been uncompressed with the default format "dat". The names of unpacked files and the presence of empty unpacked files are important to keep informations relative to the initial pzz and ensure a correct pack.
