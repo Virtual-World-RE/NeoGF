@@ -12,7 +12,7 @@ Every file extracted has a name using the format :
 
 AAAB_CD.E
 - AAA is the 3 digits index of the file in the PZZ starting at 000.
-- B describe the compression state of the file when packed in the PZZ. If compressed it's **C** or if not it's **U**.
+- B describe the compression state of the file when packed in the PZZ. If compressed it's **C** and if not it's **U**.
 - C is the name of the PZZ.
 - D describe the actual compression state of the file. It's **\_compressed** if the file is compressed and nothing if the file is uncompressed.
 - E is the extension of the file. By default it is **.dat**
