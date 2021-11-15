@@ -40,6 +40,6 @@ If optional_dest_folder is specified we unpack all files in _optional_dest_folde
 ```
 pzztool.py -bp source_folder optional_dest_folder
 ```
-Pack every folder present in _source_folder_ using the same directory. For each folder a pzz file a folder is created using the name of the pzz.
+Pack every folder present in _source_folder_ using the same directory. For each folder a pzz file is created using the name of the pzz.
 
 If optional_dest_folder is specified we pack all folders in _optional_dest_folder_ instead of source_folder.
