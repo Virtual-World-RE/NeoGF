@@ -3,7 +3,7 @@ from math import ceil
 from struct import unpack, pack
 from pathlib import Path
 from os import listdir
-__version__ = "1.2"
+__version__ = "1.3.0"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
