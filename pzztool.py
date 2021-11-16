@@ -144,6 +144,9 @@ def pzz_compress(b):
 
 def pzz_unpack(pzz_path, dest_folder):
     # Script BMS pour les pzz de ps2 (GioGio's adventure) -> https://zenhax.com/viewtopic.php?f=9&t=8724&p=39437#p39437
+    if pzz_path.suffix != ".pzz":
+        print("WARNING - Unpack : Invalid file format '" + pzz_path.suffix +
+              "'; it should be .pzz file format")
 
     if dest_folder != Path('.'):
         unpacked_pzz_path = dest_folder
