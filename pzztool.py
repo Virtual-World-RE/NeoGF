@@ -58,12 +58,8 @@ def pzz_decompress(compressed_bytes: bytes):
 
 
 def bytes_align(bout: bytes):
-    success = False
-    while not success:
-        bout.extend(b"\x00\x00")
-        address = len(bout)
-        if hex(address).endswith("00"):
-            break
+    while not hex(len(bout)).endswith("000"):
+        bout.extend(b"\x00")
 
 
 def pzz_compress(b):
