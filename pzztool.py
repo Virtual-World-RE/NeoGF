@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 from math import ceil
-from struct import unpack, pack
+from struct import unpack
 from pathlib import Path
-from os import listdir
-__version__ = "1.3.1"
+from os import listdir, path
+__version__ = "1.3.8"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
@@ -58,7 +58,7 @@ def pzz_decompress(compressed_bytes: bytes):
 
 
 def bytes_align(bout: bytes):
-    while not hex(len(bout)).endswith("000"):
+    while len(bout) % CHUNK_SIZE > 0:
         bout.extend(b"\x00")
 
 
@@ -267,31 +267,25 @@ def pzz_pack(src_path, dest_file):
                         b"\x00" * (CHUNK_SIZE - (pzz_file.tell() % CHUNK_SIZE)))
 
 
-            
 def get_argparser():
     import argparse
-    parser = argparse.ArgumentParser(
-        description='PZZ (de)compressor & unpacker - [GameCube] Gotcha Force v' + __version__)
-    parser.add_argument('--version',   action='version',
-                        version='%(prog)s ' + __version__)
+    parser = argparse.ArgumentParser(description='PZZ (de)compressor & unpacker - [GameCube] Gotcha Force v' + __version__)
+    parser.add_argument('--version',   action='version', version='%(prog)s ' + __version__)
+    parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
     parser.add_argument('input_path',  metavar='INPUT',  help='')
-    parser.add_argument('output_path', metavar='OUTPUT',
-                        help='', nargs='?', default="")
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-p', '--pack',              action='store_true',
-                       help="-p source_folder dest_file.pzz(optionnal) : Pack source_folder in new file source_folder.pzz")
-    group.add_argument('-u', '--unpack',            action='store_true',
-                       help='-u source_folder.pzz dest_folder(optionnal) : Unpack the pzz in new folder source_folder')
-    group.add_argument('-bp', '--batch-pack',       action='store_true',
-                       help='-bp source_folder dest_folder(optionnal - if not specified it will pack in source_folder)')
-    group.add_argument('-bu', '--batch-unpack',     action='store_true',
-                       help='-bu source_folder dest_folder(optionnal - if not specified it will unpack in source_folder)')
+    parser.add_argument('output_path', metavar='OUTPUT', help='', nargs='?', default="")
 
-    group.add_argument('-a', '-aa',action='store_true', help='sha256')
-    # group.add_argument('-c', '--compress',          action='store_true', help='')
-    # group.add_argument('-d', '--decompress',        action='store_true', help='Unpacked files from PZZ')
-    # group.add_argument('-bc', '--batch-compress',   action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*.bin')
-    # group.add_argument('-bd', '--batch-decompress', action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*_compressed.dat')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-p', '--pack',              action='store_true', help="-p source_folder dest_file.pzz(optionnal) : Pack source_folder in new file source_folder.pzz")
+    group.add_argument('-u', '--unpack',            action='store_true', help='-u source_folder.pzz dest_folder(optionnal) : Unpack the pzz in new folder source_folder')
+    group.add_argument('-bp', '--batch-pack',       action='store_true', help='-bp source_folder dest_folder(optionnal - if not specified it will pack in source_folder)')
+    group.add_argument('-bu', '--batch-unpack',     action='store_true', help='-bu source_folder dest_folder(optionnal - if not specified it will unpack in source_folder)')
+    # group.add_argument('-a', '-aa', action='store_true', help='sha256')
+    group.add_argument('-c', '--compress', action='store_true', help='')
+    group.add_argument('-d', '--decompress', action='store_true', help='Unpacked files from PZZ')
+    group.add_argument('-bc', '--batch-compress',   action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*.bin')
+    group.add_argument('-bd', '--batch-decompress', action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*_compressed.dat')
+    group.add_argument('-di', '--disable-ignore', action='store_true', help="Disable filename ignore")
     return parser
 
 
@@ -300,8 +294,7 @@ if __name__ == '__main__':
 
     p_input = Path(args.input_path)
     p_output = Path(args.output_path)
-    """
-    if   args.compress:
+    if args.compress:
         print("### Compress")
         p_output.write_bytes(pzz_compress(p_input.read_bytes()))
     elif args.decompress:
@@ -311,26 +304,38 @@ if __name__ == '__main__':
         print("### Batch Compress")
         p_output.mkdir(exist_ok=True)
 
-        p = Path('.')
-        for filename in p.glob(args.input_path):
-            print(filename)
-            b = filename.read_bytes()
-            (p_output / filename.name).with_suffix(".dat").write_bytes(pzz_compress(b))
+        for filename in listdir(p_input):
+            if (not args.ignore_filename) and ("_uncompressed" in filename):
+                if args.verbose:
+                    print(f"Compressing {filename}")
+                recomp_filename = filename.replace(
+                    "_uncompressed", "_recompressed")
+
+                uncompressed = open(path.join(p_input, filename), 'rb')
+                recompressed = open(path.join(p_output, filename), 'wb')
+                recompressed.write(pzz_compress(uncompressed.read()))
+                recompressed.close()
+                uncompressed.close()
+            else:
+                print(f"Ignored: {filename}")
     elif args.batch_decompress:
         print("### Batch Decompress")
         p_output.mkdir(exist_ok=True)
 
-        p = Path('.')
-        for filename in p.glob(args.input_path):
-            print(filename)
-            try:
-                b = filename.read_bytes()
-                (p_output / filename.name).with_suffix(".bin").write_bytes(pzz_decompress(b))
-            except IndexError:
-                print("! Wrong PZZ file")
-    el
-    """
-    if args.pack:
+        for filename in listdir(p_input):
+            if (not args.ignore_filename) and ("_compressed" in filename):
+                print(f"Decompressing {filename}")
+                uncomp_filename = filename.replace(
+                    "_compressed", "_uncompressed")
+
+                compressed = open(path.join(p_input, filename), 'rb')
+                uncompressed = open(path.join(p_output, uncomp_filename), 'wb')
+                uncompressed.write(pzz_decompress(compressed.read()))
+                uncompressed.close()
+                compressed.close()
+            else:
+                print(f"Ignored: {filename}")
+    elif args.pack:
         print("### Pack")
         pzz_pack(p_input, p_output)
     elif args.unpack:
