@@ -305,7 +305,7 @@ if __name__ == '__main__':
         p_output.mkdir(exist_ok=True)
 
         for filename in listdir(p_input):
-            if (not args.ignore_filename) and ("_uncompressed" in filename):
+            if (not args.disable_ignore) and ("_uncompressed" in filename):
                 if args.verbose:
                     print(f"Compressing {filename}")
                 recomp_filename = filename.replace(
@@ -323,7 +323,7 @@ if __name__ == '__main__':
         p_output.mkdir(exist_ok=True)
 
         for filename in listdir(p_input):
-            if (not args.ignore_filename) and ("_compressed" in filename):
+            if (not args.disable_ignore) and ("_compressed" in filename):
                 print(f"Decompressing {filename}")
                 uncomp_filename = filename.replace(
                     "_compressed", "_uncompressed")
