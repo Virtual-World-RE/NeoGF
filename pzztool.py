@@ -3,7 +3,7 @@ from math import ceil
 from struct import unpack
 from pathlib import Path
 from os import listdir, path
-__version__ = "1.3.8"
+__version__ = "1.3.9"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
@@ -144,7 +144,7 @@ def pzz_compress(b):
 
 def pzz_unpack(pzz_path, dest_folder):
     if pzz_path.suffix != ".pzz":
-        print("WARNING - Unpack : Invalid file format '" + pzz_path.suffix + "'; it should be .pzz file format")
+        print(f"WARNING - Unpack : Invalid file format '{pzz_path.suffix}'; it should be .pzz file format")
 
     if dest_folder != Path('.'):
         unpacked_pzz_path = dest_folder
@@ -160,7 +160,7 @@ def pzz_unpack(pzz_path, dest_folder):
         # files_descriptors reçoit un tuple avec l'ensemble des descripteurs de fichiers (groupes d'uint32 big-endian)
         files_descriptors = unpack(f">{file_count}I", pzz_file.read(file_count * 4))
 
-        print("File count:", file_count)
+        print(f"File count:{file_count}")
 
         offset = CHUNK_SIZE
         # on parcours le tuple de descripteurs de fichiers
@@ -182,10 +182,10 @@ def pzz_unpack(pzz_path, dest_folder):
             file_len = file_descriptor * CHUNK_SIZE
 
             # On forme le nom du nouveau fichier que l'on va extraire
-            filename = "{:03}{}_{}".format(index, compression_status, pzz_path.stem)
+            filename = f"{index:03}{compression_status}_{pzz_path.stem}"
             file_path = (unpacked_pzz_path / filename).with_suffix(".dat")
 
-            print("Offset: {:010} - {}".format(offset, file_path.stem))
+            print(f"Offset: {offset:010} - {file_path.stem}")
 
             # Si la taille est nulle, on créé un fichier vide et on passe au descripteur de fichier suivant
             if file_len == 0:
@@ -219,7 +219,7 @@ def pzz_pack(src_path, dest_file):
     else:
         pzz_path = src_path.with_suffix(".pzz")
 
-    print(str(file_count) + " files to pack in " + str(pzz_path))
+    print(f"{file_count} files to pack in {pzz_path}")
 
     with pzz_path.open("wb") as pzz_file:
         # On écrit file_count au début de header
@@ -252,16 +252,16 @@ def pzz_pack(src_path, dest_file):
 
             with (src_path / src_file_name).open("rb") as src_file:
                 # Le fichier doit être compressé avant d'être pack
-                if compression_status == 'C' and is_compressed is False:
+                if compression_status == 'C' and not is_compressed:
                     pzz_file.write(pzz_compress(src_file.read()))
                 # Le fichier doit être décompressé avant d'être pack
-                elif compression_status == 'U' and is_compressed is True:
+                elif compression_status == 'U' and is_compressed:
                     pzz_file.write(pzz_decompress(src_file.read()))
                 else:
                     pzz_file.write(src_file.read())
 
                 # Si le fichier n'est pas compressé, on ajoute le padding pour correspondre à un multiple de CHUNK_SIZE
-                if compression_status == 'C' and (pzz_file.tell() % CHUNK_SIZE) > 0:
+                if compression_status == 'U' and (pzz_file.tell() % CHUNK_SIZE) > 0:
                     pzz_file.write(b"\x00" * (CHUNK_SIZE - (pzz_file.tell() % CHUNK_SIZE)))
 
 
@@ -302,10 +302,10 @@ if __name__ == '__main__':
         p_output.mkdir(exist_ok=True)
 
         for filename in listdir(p_input):
-            if (not args.disable_ignore) and ("_uncompressed" in filename):
+            if (not args.disable_ignore) and not ("_compressed" in filename):
                 if args.verbose:
                     print(f"Compressing {filename}")
-                recomp_filename = filename.replace("_uncompressed", "_recompressed")
+                recomp_filename = Path(filename).stem + "_compressed" + Path(filename).suffix
 
                 uncompressed = open(path.join(p_input, filename), 'rb')
                 recompressed = open(path.join(p_output, filename), 'wb')
@@ -321,7 +321,7 @@ if __name__ == '__main__':
         for filename in listdir(p_input):
             if (not args.disable_ignore) and ("_compressed" in filename):
                 print(f"Decompressing {filename}")
-                uncomp_filename = filename.replace("_compressed", "_uncompressed")
+                uncomp_filename = filename.replace("_compressed", "")
 
                 compressed = open(path.join(p_input, filename), 'rb')
                 uncompressed = open(path.join(p_output, uncomp_filename), 'wb')
