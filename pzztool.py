@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 from math import ceil
-from struct import unpack
 from pathlib import Path
-from os import listdir, path
+from struct import unpack
+from os import listdir
+import logging
+
 __version__ = "1.3.9"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
@@ -37,7 +39,7 @@ def pzz_decompress(compressed_bytes: bytes):
         compress_flag = cb & (1 << cb_bit)
         cb_bit -= 1
 
-        # print(compress_flag)
+        # logging.debug(compress_flag)
         if compress_flag:
             c = compressed_bytes[i + 1]
             c |= compressed_bytes[i + 0] << 8
@@ -144,12 +146,14 @@ def pzz_compress(b):
 
 def pzz_unpack(pzz_path, dest_folder):
     if pzz_path.suffix != ".pzz":
-        print(f"WARNING - Unpack : Invalid file format '{pzz_path.suffix}'; it should be .pzz file format")
+        logging.warning(f"Invalid file format '{pzz_path.suffix}'; it should be .pzz file format")
 
     if dest_folder != Path('.'):
         unpacked_pzz_path = dest_folder
     else:
         unpacked_pzz_path = pzz_path.parent / pzz_path.stem
+
+    logging.info(f"    unpacking {pzz_path} in folder {unpacked_pzz_path}")
     unpacked_pzz_path.mkdir(exist_ok=True)
 
     with open(pzz_path, "rb") as pzz_file:
@@ -160,7 +164,7 @@ def pzz_unpack(pzz_path, dest_folder):
         # files_descriptors reçoit un tuple avec l'ensemble des descripteurs de fichiers (groupes d'uint32 big-endian)
         files_descriptors = unpack(f">{file_count}I", pzz_file.read(file_count * 4))
 
-        print(f"File count:{file_count}")
+        logging.debug(f"File count : {file_count}")
 
         offset = CHUNK_SIZE
         # on parcours le tuple de descripteurs de fichiers
@@ -185,7 +189,7 @@ def pzz_unpack(pzz_path, dest_folder):
             filename = f"{index:03}{compression_status}_{pzz_path.stem}"
             file_path = (unpacked_pzz_path / filename).with_suffix(".dat")
 
-            print(f"Offset: {offset:010} - {file_path.stem}")
+            logging.debug(f"Offset: {offset:010} - {file_path.stem}")
 
             # Si la taille est nulle, on créé un fichier vide et on passe au descripteur de fichier suivant
             if file_len == 0:
@@ -210,7 +214,7 @@ def pzz_pack(src_path, dest_file):
     src_files = listdir(src_path)
 
     # On récupère le nombre total de fichiers
-    file_count = int(src_files[-1][0:3]) + 1
+    file_count = len(src_files)
 
     if dest_file != Path('.'):
         if dest_file.suffix != ".pzz":
@@ -218,8 +222,8 @@ def pzz_pack(src_path, dest_file):
         pzz_path = dest_file
     else:
         pzz_path = src_path.with_suffix(".pzz")
-
-    print(f"{file_count} files to pack in {pzz_path}")
+    logging.info(f"    packing {src_path} in pzz {pzz_path}")
+    logging.debug(f"    -> {file_count} files to pack")
 
     with pzz_path.open("wb") as pzz_file:
         # On écrit file_count au début de header
@@ -287,63 +291,61 @@ def get_argparser():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
     args = get_argparser().parse_args()
 
     p_input = Path(args.input_path)
     p_output = Path(args.output_path)
+
+    if args.verbose:
+        logging.basicConfig(level=logging.debug)
+
     if args.compress:
-        print("### Compress")
+        logging.info("### Compress")
         p_output.write_bytes(pzz_compress(p_input.read_bytes()))
     elif args.decompress:
-        print("### Decompress")
+        logging.info("### Decompress")
         p_output.write_bytes(pzz_decompress(p_input.read_bytes()))
     elif args.batch_compress:
-        print("### Batch Compress")
+        logging.info("### Batch Compress")
         p_output.mkdir(exist_ok=True)
 
         for filename in listdir(p_input):
             if (not args.disable_ignore) and not ("_compressed" in filename):
-                if args.verbose:
-                    print(f"Compressing {filename}")
-                recomp_filename = Path(filename).stem + "_compressed" + Path(filename).suffix
+                logging.debug(f"Compressing {filename}")
+                recomp_filename = f"{Path(filename).stem}_compressed{Path(filename).suffix}"
 
-                uncompressed = open(path.join(p_input, filename), 'rb')
-                recompressed = open(path.join(p_output, filename), 'wb')
-                recompressed.write(pzz_compress(uncompressed.read()))
-                recompressed.close()
-                uncompressed.close()
+                with open(p_input / filename, 'rb') as uncompressed, open(p_output / filename, 'wb') as recompressed:
+                    recompressed.write(pzz_compress(uncompressed.read()))
             else:
-                print(f"Ignored: {filename}")
+                logging.info(f"Ignored: {filename}")
     elif args.batch_decompress:
-        print("### Batch Decompress")
+        logging.info("### Batch Decompress")
         p_output.mkdir(exist_ok=True)
 
         for filename in listdir(p_input):
             if (not args.disable_ignore) and ("_compressed" in filename):
-                print(f"Decompressing {filename}")
+                logging.info(f"Decompressing {filename}")
                 uncomp_filename = filename.replace("_compressed", "")
 
-                compressed = open(path.join(p_input, filename), 'rb')
-                uncompressed = open(path.join(p_output, uncomp_filename), 'wb')
-                uncompressed.write(pzz_decompress(compressed.read()))
-                uncompressed.close()
-                compressed.close()
+                with open(p_output / uncomp_filename, 'wb') as uncompressed, open(p_input / filename, 'rb') as compressed:
+                    uncompressed.write(pzz_decompress(compressed.read()))
             else:
-                print(f"Ignored: {filename}")
+                logging.info(f"Ignored: {filename}")
     elif args.pack:
-        print("### Pack")
+        logging.info("### Pack")
         pzz_pack(p_input, p_output)
     elif args.unpack:
-        print("### Unpack")
+        logging.info("### Unpack")
         pzz_unpack(p_input, p_output)
     elif args.batch_pack:
-        print("### Batch Pack")
+        logging.info("### Batch Pack")
         p_output.mkdir(exist_ok=True)
 
         for folder in listdir(p_input):
             pzz_pack(p_input / folder, p_output / Path(folder).with_suffix(".pzz"))
     elif args.batch_unpack:
-        print("### Batch Unpack")
+        logging.info("### Batch Unpack")
         p_output.mkdir(exist_ok=True)
 
         for filename in listdir(p_input):
