@@ -5,7 +5,7 @@ from struct import unpack
 from os import listdir
 import logging
 
-__version__ = "1.3.9"
+__version__ = "1.3.10"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
