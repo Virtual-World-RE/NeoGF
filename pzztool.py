@@ -5,7 +5,7 @@ from struct import unpack
 from os import listdir
 import logging
 
-__version__ = "1.3.10"
+__version__ = "1.3.11"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
@@ -229,44 +229,47 @@ def pzz_pack(src_path, dest_file):
         # On écrit file_count au début de header
         pzz_file.write(file_count.to_bytes(4, byteorder='big'))
 
-        # On écrit les file_descriptor dans le header du PZZ pour chaque fichier
-        for src_file_name in src_files:
-            index = int(src_file_name[0:3])
-
-            # Compression status permet de verrifier si le fichier doit être finalement compressé ou non
-            compression_status = src_file_name[3:4]
-
-            # file_descriptor = arrondi supérieur de la taille / CHUNK_SIZE
-            file_descriptor = ceil((src_path / src_file_name).stat().st_size / CHUNK_SIZE)
-
-            # On ajoute le flag de compression au file_descriptor
-            if compression_status == 'C':
-                file_descriptor |= BIT_COMPRESSION_FLAG
-
-            # On ecrit le file_descriptor
-            pzz_file.write(file_descriptor.to_bytes(4, byteorder='big'))
-
         # On se place à la fin du header PZZ
         pzz_file.seek(CHUNK_SIZE)
 
+        file_descriptors = []
         # On écrit tous les fichiers à la suite du header
         for src_file_name in src_files:
             is_compressed = "_compressed" in src_file_name
             compression_status = src_file_name[3:4]
 
             with (src_path / src_file_name).open("rb") as src_file:
+                src_file = src_file.read()
+
                 # Le fichier doit être compressé avant d'être pack
                 if compression_status == 'C' and not is_compressed:
-                    pzz_file.write(pzz_compress(src_file.read()))
+                    src_file = pzz_compress(src_file)
                 # Le fichier doit être décompressé avant d'être pack
                 elif compression_status == 'U' and is_compressed:
-                    pzz_file.write(pzz_decompress(src_file.read()))
-                else:
-                    pzz_file.write(src_file.read())
+                    src_file = pzz_decompress(src_file) # padding à gérer
 
-                # Si le fichier n'est pas compressé, on ajoute le padding pour correspondre à un multiple de CHUNK_SIZE
-                if compression_status == 'U' and (pzz_file.tell() % CHUNK_SIZE) > 0:
-                    pzz_file.write(b"\x00" * (CHUNK_SIZE - (pzz_file.tell() % CHUNK_SIZE)))
+                # on ajoute le padding pour correspondre à un multiple de CHUNK_SIZE
+                if compression_status == 'U':
+                    if (len(src_file) % CHUNK_SIZE) > 0:
+                        src_file.extend(b"\x00" * (CHUNK_SIZE - (len(src_file) % CHUNK_SIZE)))
+                
+
+                # file_descriptor = arrondi supérieur de la taille / CHUNK_SIZE
+                file_descriptor = ceil(len(src_file) / CHUNK_SIZE)
+
+                # On ajoute le flag de compression au file_descriptor
+                if compression_status == 'C':
+                    file_descriptor |= BIT_COMPRESSION_FLAG
+
+                file_descriptors.append(file_descriptor)
+                pzz_file.write(src_file)
+
+        pzz_file.seek(4)
+        # On écrit les file_descriptor dans le header du PZZ pour chaque fichier
+        tmp = bytearray()
+        for file_descriptor in file_descriptors:
+            tmp.extend(file_descriptor.to_bytes(4, byteorder='big'))
+        pzz_file.write(tmp)
 
 
 def get_argparser():
