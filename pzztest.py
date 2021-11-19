@@ -56,7 +56,7 @@ if __name__ == '__main__':
     elif args.test_batch_unpack_pack:
         # compare le sha256 de chaque PZZ du dossier passé en argument et pzz2 puis affiche le nom de fichier en cas de différence
         print("# TEST : BATCH UNPACK PACK")
-        os.system("python pzztool.py -bu "+args.input_path+" pzzu -v")
+        os.system(f"python pzztool.py -bu {args.input_path} pzzu -v")
         os.system("python pzztool.py -bp pzzu pzz2 -v")
 
         invalid_files_count = 0
