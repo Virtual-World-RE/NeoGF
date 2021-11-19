@@ -164,7 +164,7 @@ def pzz_unpack(pzz_path, dest_folder):
         # files_descriptors reçoit un tuple avec l'ensemble des descripteurs de fichiers (groupes d'uint32 big-endian)
         files_descriptors = unpack(f">{file_count}I", pzz_file.read(file_count * 4))
 
-        logging.debug(f"File count : {file_count}")
+        logging.debug(f"    -> File count : {file_count}")
 
         offset = CHUNK_SIZE
         # on parcours le tuple de descripteurs de fichiers
@@ -189,7 +189,7 @@ def pzz_unpack(pzz_path, dest_folder):
             filename = f"{index:03}{compression_status}_{pzz_path.stem}"
             file_path = (unpacked_pzz_path / filename).with_suffix(".dat")
 
-            logging.debug(f"Offset: {offset:010} - {file_path.stem}")
+            logging.debug(f"    -> Offset: {offset:010} - {file_path.stem}")
 
             # Si la taille est nulle, on créé un fichier vide et on passe au descripteur de fichier suivant
             if file_len == 0:
@@ -298,7 +298,7 @@ if __name__ == '__main__':
     p_output = Path(args.output_path)
 
     if args.verbose:
-        logging.basicConfig(level=logging.debug)
+        logging.basicConfig(level=logging.DEBUG)
 
     if args.compress:
         logging.info("### Compress")
