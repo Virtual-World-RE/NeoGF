@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 from math import ceil
 from pathlib import Path
+import shutil
 from struct import unpack
 from os import listdir
 import logging
 
-__version__ = "1.3.11"
+__version__ = "1.4.0"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
@@ -68,7 +69,7 @@ def bytes_align(bout: bytes):
         bout.extend(b"\x00")
 
 
-def pzz_compress(b):
+def pzz_compress(b: bytes):
     bout = bytearray()
     size_b = len(b) // 2 * 2
 
@@ -144,7 +145,7 @@ def pzz_compress(b):
     return bout
 
 
-def pzz_unpack(pzz_path, dest_folder):
+def pzz_unpack(pzz_path: Path, dest_folder: Path, auto_decompress: bool = False):
     if pzz_path.suffix != ".pzz":
         logging.warning(f"Invalid file format '{pzz_path.suffix}'; it should be .pzz file format")
 
@@ -153,7 +154,10 @@ def pzz_unpack(pzz_path, dest_folder):
     else:
         unpacked_pzz_path = pzz_path.parent / pzz_path.stem
 
-    logging.info(f"    unpacking {pzz_path} in folder {unpacked_pzz_path}")
+    if(auto_decompress):
+        logging.info(f"    unpzz({pzz_path}) in folder {unpacked_pzz_path}")
+    else:
+        logging.info(f"    unpacking {pzz_path} in folder {unpacked_pzz_path}")
     unpacked_pzz_path.mkdir(exist_ok=True)
 
     with open(pzz_path, "rb") as pzz_file:
@@ -174,7 +178,7 @@ def pzz_unpack(pzz_path, dest_folder):
             is_compressed = (file_descriptor & BIT_COMPRESSION_FLAG) != 0
             if not is_compressed:  # Si le fichier n'est pas compressé, on ajoute 'U' derrière l'index
                 compression_status = 'U'
-            else:  # Si le fichier est compressé, on ajoute "_compressed" devant l'extension et 'C' derrière l'index
+            else:  # Si le fichier est compressé on ajoute 'C' derrière l'index et l'extension ".pzzp"
                 compression_status = 'C'
 
             # file_descriptor reçoit maintenant les 30 premiers bits : (la taille / CHUNK_SIZE)
@@ -187,9 +191,12 @@ def pzz_unpack(pzz_path, dest_folder):
 
             # On forme le nom du nouveau fichier que l'on va extraire
             filename = f"{index:03}{compression_status}_{pzz_path.stem}"
-            file_path = (unpacked_pzz_path / filename).with_suffix(".dat")
+            if auto_decompress or compression_status == 'U':
+                file_path = (unpacked_pzz_path / filename).with_suffix(".dat")
+            else:
+                file_path = (unpacked_pzz_path / filename).with_suffix(".pzzp")
 
-            logging.debug(f"    -> Offset: {offset:010} - {file_path.stem}")
+            logging.debug(f"    -> Offset: {offset:010} - {file_path}")
 
             # Si la taille est nulle, on créé un fichier vide et on passe au descripteur de fichier suivant
             if file_len == 0:
@@ -199,7 +206,7 @@ def pzz_unpack(pzz_path, dest_folder):
             # On se positionne au début du fichier dans l'archive
             pzz_file.seek(offset)
             # On extrait notre fichier et on le décompresse
-            if compression_status == 'C':
+            if compression_status == 'C' and auto_decompress:
                 file_path.write_bytes(pzz_decompress(pzz_file.read(file_len)))
             else:
                 file_path.write_bytes(pzz_file.read(file_len))
@@ -209,23 +216,25 @@ def pzz_unpack(pzz_path, dest_folder):
             offset += file_len
 
 
-def pzz_pack(src_path, dest_file):
+def pzz_pack(src_path: Path, dest_file: Path, auto_compress: bool = False):
+    if dest_file == Path('.'):
+        dest_file = src_path.with_suffix(".pzz")
+    if dest_file.suffix != ".pzz":
+        logging.warning("Invalid file format : dest must be a pzz")
+
     # On récupère les fichiers du dossier à compresser
     src_files = listdir(src_path)
 
     # On récupère le nombre total de fichiers
     file_count = len(src_files)
 
-    if dest_file != Path('.'):
-        if dest_file.suffix != ".pzz":
-            raise("Invalid file format : dest must be a pzz")
-        pzz_path = dest_file
+    if auto_compress:
+        logging.info(f"    pzz({src_path}) in pzz {dest_file}")
     else:
-        pzz_path = src_path.with_suffix(".pzz")
-    logging.info(f"    packing {src_path} in pzz {pzz_path}")
+        logging.info(f"    packing {src_path} in pzz {dest_file}")
     logging.debug(f"    -> {file_count} files to pack")
 
-    with pzz_path.open("wb") as pzz_file:
+    with dest_file.open("wb") as pzz_file:
         # On écrit file_count au début de header
         pzz_file.write(file_count.to_bytes(4, byteorder='big'))
 
@@ -235,24 +244,23 @@ def pzz_pack(src_path, dest_file):
         file_descriptors = []
         # On écrit tous les fichiers à la suite du header
         for src_file_name in src_files:
-            is_compressed = "_compressed" in src_file_name
+            is_compressed = Path(src_file_name).suffix == ".pzzp"
             compression_status = src_file_name[3:4]
 
             with (src_path / src_file_name).open("rb") as src_file:
                 src_file = src_file.read()
 
                 # Le fichier doit être compressé avant d'être pack
-                if compression_status == 'C' and not is_compressed:
+                if compression_status == 'C' and not is_compressed and auto_compress:
                     src_file = pzz_compress(src_file)
                 # Le fichier doit être décompressé avant d'être pack
-                elif compression_status == 'U' and is_compressed:
+                elif compression_status == 'U' and is_compressed and auto_compress:
                     src_file = pzz_decompress(src_file) # padding à gérer
 
                 # on ajoute le padding pour correspondre à un multiple de CHUNK_SIZE
                 if compression_status == 'U':
                     if (len(src_file) % CHUNK_SIZE) > 0:
                         src_file.extend(b"\x00" * (CHUNK_SIZE - (len(src_file) % CHUNK_SIZE)))
-                
 
                 # file_descriptor = arrondi supérieur de la taille / CHUNK_SIZE
                 file_descriptor = ceil(len(src_file) / CHUNK_SIZE)
@@ -272,24 +280,36 @@ def pzz_pack(src_path, dest_file):
         pzz_file.write(tmp)
 
 
+def unpzz(src_path: Path, dest_file: Path):
+    pzz_unpack(src_path, dest_file, auto_decompress = True)
+
+
+def pzz(src_path: Path, dest_file: Path):
+    pzz_pack(src_path, dest_file, auto_compress = True)
+
+
 def get_argparser():
     import argparse
     parser = argparse.ArgumentParser(description='PZZ (de)compressor & unpacker - [GameCube] Gotcha Force v' + __version__)
     parser.add_argument('--version',   action='version', version='%(prog)s ' + __version__)
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
+    parser.add_argument('-di', '--disable-ignore',   action='store_true', help="Disable .pzzp or .pzz file extension verification.")
     parser.add_argument('input_path',  metavar='INPUT',  help='')
     parser.add_argument('output_path', metavar='OUTPUT', help='', nargs='?', default="")
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-p', '--pack',              action='store_true', help="-p source_folder dest_file.pzz(optionnal) : Pack source_folder in new file source_folder.pzz")
-    group.add_argument('-u', '--unpack',            action='store_true', help='-u source_folder.pzz dest_folder(optionnal) : Unpack the pzz in new folder source_folder')
-    group.add_argument('-bp', '--batch-pack',       action='store_true', help='-bp source_folder dest_folder(optionnal - if not specified it will pack in source_folder)')
-    group.add_argument('-bu', '--batch-unpack',     action='store_true', help='-bu source_folder dest_folder(optionnal - if not specified it will unpack in source_folder)')
-    group.add_argument('-c', '--compress',          action='store_true', help='')
-    group.add_argument('-d', '--decompress',        action='store_true', help='Unpacked files from PZZ')
-    group.add_argument('-bc', '--batch-compress',   action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*.bin')
-    group.add_argument('-bd', '--batch-decompress', action='store_true', help='INPUT relative pattern; e.g. AFS_DATA\\*_compressed.dat')
-    group.add_argument('-di', '--disable-ignore',   action='store_true', help="Disable filename ignore")
+    group.add_argument('-pzz', '--pzz',             action='store_true', help="-pzz source_folder (dest_file.pzz) : pzz source_folder in new file source_folder.pzz or dest_file if specified")
+    group.add_argument('-unpzz', '--unpzz',         action='store_true', help="-unpzz source_folder.pzz (dest_folder) : unpzz the pzz in new folder source_folder or dest_folder if specified")
+    group.add_argument('-bpzz', '--batch-pzz',      action='store_true', help='-bpzz source_folder (dest_folder) : Batch pzz (auto compress) all pzz_folder from source_folder into source_folder or dest_folder if specified')
+    group.add_argument('-bunpzz', '--batch-unpzz',  action='store_true', help='-bunpzz source_folder (dest_folder) : Batch unpzz (auto decompress) all pzz from source_folder into source_folder or dest_folder if specified')
+    group.add_argument('-p', '--pack',              action='store_true', help="-p source_folder (dest_file.pzz) : Pack source_folder in new file source_folder.pzz or dest_file if specified")
+    group.add_argument('-u', '--unpack',            action='store_true', help='-u source_folder.pzz (dest_folder) : Unpack the pzz in new folder source_folder or dest_folder if specified')
+    group.add_argument('-bp', '--batch-pack',       action='store_true', help='-bp source_folder (dest_folder) : Batch pack all pzz_folder from source_folder into source_folder or dest_folder if specified')
+    group.add_argument('-bu', '--batch-unpack',     action='store_true', help='-bu source_folder (dest_folder) : Batch unpack all pzz from source_folder into source_folder or dest_folder if specified')
+    group.add_argument('-c', '--compress',          action='store_true', help='-c source_file (dest_file) : compress source_file in source_file.pzzp or dest_file if specified')
+    group.add_argument('-d', '--decompress',        action='store_true', help='-d source_file.pzzp (dest_file) : decompress source_file.pzzp in source_file or dest_file if specified')
+    group.add_argument('-bc', '--batch-compress',   action='store_true', help='-bc source_folder dest_folder : compress all files from source_folder into dest_folder')
+    group.add_argument('-bd', '--batch-decompress', action='store_true', help='-bd source_folder dest_folder : decompress all files from source_folder into dest_folder')
     return parser
 
 
@@ -305,51 +325,94 @@ if __name__ == '__main__':
 
     if args.compress:
         logging.info("### Compress")
-        p_output.write_bytes(pzz_compress(p_input.read_bytes()))
+        if(p_output == Path(".")):
+            p_output = Path(p_input.with_suffix(".pzzp"))
+
+        # Si on a pas la bonne extension on ne compresse pas le fichier
+        if not args.disable_ignore and p_output.suffix != ".pzzp":
+            logging.warning(f"Ignored - {p_output} - bad extension - must be a pzzp")
+        else:
+            logging.info(f"Compressing {p_input} in {p_output}")
+            p_output.write_bytes(pzz_compress(p_input.read_bytes()))
     elif args.decompress:
         logging.info("### Decompress")
-        p_output.write_bytes(pzz_decompress(p_input.read_bytes()))
+        if(p_output == Path(".")):
+            p_output = p_input.parent / (p_input.stem+".dat")
+
+        # Si on a pas la bonne extension on ne decompresse pas le fichier
+        if not args.disable_ignore and p_input.suffix != ".pzzp":
+            logging.warning(f"Ignored - {p_input} - bad extension - must be a pzzp")
+        else:
+            logging.info(f"Decompressing {p_input} in {p_output}")
+            p_output.write_bytes(pzz_decompress(p_input.read_bytes()))
     elif args.batch_compress:
         logging.info("### Batch Compress")
         p_output.mkdir(exist_ok=True)
 
         for filename in listdir(p_input):
-            if (not args.disable_ignore) and not ("_compressed" in filename):
-                logging.debug(f"Compressing {filename}")
-                recomp_filename = f"{Path(filename).stem}_compressed{Path(filename).suffix}"
+            # Si on a pas la bonne extension on ne compresse pas le fichier
+            if not args.disable_ignore and Path(filename).suffix == ".pzzp":
+                logging.warning(f"Ignored - {filename} - bad extension - musn't be a pzzp")
+                shutil.copy(p_input / filename, p_output / filename)
+                continue
 
-                with open(p_input / filename, 'rb') as uncompressed, open(p_output / filename, 'wb') as recompressed:
-                    recompressed.write(pzz_compress(uncompressed.read()))
-            else:
-                logging.info(f"Ignored: {filename}")
+            logging.info(f"Compressing {filename}")
+            with open(p_input / filename, 'rb') as uncompressed, open(p_output / (Path(filename).stem + ".pzzp"), 'wb') as recompressed:
+                recompressed.write(pzz_compress(uncompressed.read()))
     elif args.batch_decompress:
         logging.info("### Batch Decompress")
         p_output.mkdir(exist_ok=True)
 
         for filename in listdir(p_input):
-            if (not args.disable_ignore) and ("_compressed" in filename):
-                logging.info(f"Decompressing {filename}")
-                uncomp_filename = filename.replace("_compressed", "")
+            if not args.disable_ignore and Path(filename).suffix != ".pzzp":
+                logging.warning(f"Ignored - {filename} - bad extension - must be a pzzp")
+                shutil.copy(p_input / filename, p_output / filename)
+                continue
 
-                with open(p_output / uncomp_filename, 'wb') as uncompressed, open(p_input / filename, 'rb') as compressed:
-                    uncompressed.write(pzz_decompress(compressed.read()))
-            else:
-                logging.info(f"Ignored: {filename}")
+            logging.info(f"Decompressing {filename}")
+            with open(p_output / (Path(filename).stem+".dat"), 'wb') as uncompressed, open(p_input / filename, 'rb') as compressed:
+                uncompressed.write(pzz_decompress(compressed.read()))
     elif args.pack:
         logging.info("### Pack")
         pzz_pack(p_input, p_output)
     elif args.unpack:
         logging.info("### Unpack")
         pzz_unpack(p_input, p_output)
+    elif args.pzz:
+        logging.info("### PZZ")
+        pzz(p_input, p_output)
+    elif args.unpzz:
+        logging.info("### UNPZZ")
+        unpzz(p_input, p_output)
     elif args.batch_pack:
         logging.info("### Batch Pack")
         p_output.mkdir(exist_ok=True)
 
+        if(p_output == Path('.')):
+            p_output = p_input
         for folder in listdir(p_input):
             pzz_pack(p_input / folder, p_output / Path(folder).with_suffix(".pzz"))
     elif args.batch_unpack:
         logging.info("### Batch Unpack")
         p_output.mkdir(exist_ok=True)
 
+        if(p_output == Path('.')):
+            p_output = p_input
         for filename in listdir(p_input):
             pzz_unpack(p_input / filename, p_output / Path(filename).stem)
+    elif args.batch_pzz:
+        logging.info("### Batch PZZ")
+        p_output.mkdir(exist_ok=True)
+
+        if(p_output == Path('.')):
+            p_output = p_input
+        for folder in listdir(p_input):
+            pzz(p_input / folder, p_output / Path(folder).with_suffix(".pzz"))
+    elif args.batch_unpzz:
+        logging.info("### Batch UNPZZ")
+        p_output.mkdir(exist_ok=True)
+
+        if(p_output == Path('.')):
+            p_output = p_input
+        for filename in listdir(p_input):
+            unpzz(p_input / filename, p_output / Path(filename).stem)
