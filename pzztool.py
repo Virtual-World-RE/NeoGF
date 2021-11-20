@@ -6,7 +6,7 @@ from struct import unpack
 from os import listdir
 import logging
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
@@ -20,6 +20,19 @@ __status__ = "developpement"
 BIT_COMPRESSION_FLAG = 0x40000000
 FILE_LENGTH_MASK = 0x3FFFFFFF
 CHUNK_SIZE = 0x800
+TPL_MAGIC_NUMBER = b"\x00\x20\xAF\x30" # http://virtualre.rf.gd/index.php/TPL_(Format_de_fichier)
+
+
+def get_file_ext(file_content: bytes):
+    if file_content[0:4] == TPL_MAGIC_NUMBER:
+        return ".tpl"
+    # Par défaut
+    return ".dat"
+
+
+def bytes_align(bout: bytes):
+    while len(bout) % CHUNK_SIZE > 0:
+        bout.extend(b"\x00")
 
 
 def pzz_decompress(compressed_bytes: bytes):
@@ -62,11 +75,6 @@ def pzz_decompress(compressed_bytes: bytes):
         i += 2
 
     return uncompressed_bytes
-
-
-def bytes_align(bout: bytes):
-    while len(bout) % CHUNK_SIZE > 0:
-        bout.extend(b"\x00")
 
 
 def pzz_compress(b: bytes):
@@ -191,25 +199,29 @@ def pzz_unpack(pzz_path: Path, dest_folder: Path, auto_decompress: bool = False)
 
             # On forme le nom du nouveau fichier que l'on va extraire
             filename = f"{index:03}{compression_status}_{pzz_path.stem}"
-            if auto_decompress or compression_status == 'U':
-                file_path = (unpacked_pzz_path / filename).with_suffix(".dat")
-            else:
-                file_path = (unpacked_pzz_path / filename).with_suffix(".pzzp")
+            file_path = unpacked_pzz_path / filename
 
             logging.debug(f"    -> Offset: {offset:010} - {file_path}")
 
             # Si la taille est nulle, on créé un fichier vide et on passe au descripteur de fichier suivant
             if file_len == 0:
-                file_path.touch()
+                file_path.with_suffix(".dat").touch()
                 continue
 
             # On se positionne au début du fichier dans l'archive
             pzz_file.seek(offset)
             # On extrait notre fichier et on le décompresse
             if compression_status == 'C' and auto_decompress:
-                file_path.write_bytes(pzz_decompress(pzz_file.read(file_len)))
+                file_content = pzz_decompress(pzz_file.read(file_len))
             else:
-                file_path.write_bytes(pzz_file.read(file_len))
+                file_content = pzz_file.read(file_len)
+
+            if not auto_decompress and compression_status != 'U':
+                file_path = file_path.with_suffix(".pzzp")
+            else:
+                file_path = file_path.with_suffix(get_file_ext(file_content))
+
+            file_path.write_bytes(file_content)
 
             # Enfin, on ajoute la taille du fichier afin de pointer sur le fichier suivant
             # La taille du fichier étant un multiple de CHUNK_SIZE, on aura complété les 2048 octets finaux avec des 0x00
@@ -336,15 +348,17 @@ if __name__ == '__main__':
             p_output.write_bytes(pzz_compress(p_input.read_bytes()))
     elif args.decompress:
         logging.info("### Decompress")
-        if(p_output == Path(".")):
-            p_output = p_input.parent / (p_input.stem+".dat")
+        if p_output == Path("."):
+            p_output = p_input.parent / p_input.stem
 
         # Si on a pas la bonne extension on ne decompresse pas le fichier
         if not args.disable_ignore and p_input.suffix != ".pzzp":
             logging.warning(f"Ignored - {p_input} - bad extension - must be a pzzp")
         else:
+            output_file_content = pzz_decompress(p_input.read_bytes())
+            p_output = p_output.with_suffix(get_file_ext(output_file_content))
             logging.info(f"Decompressing {p_input} in {p_output}")
-            p_output.write_bytes(pzz_decompress(p_input.read_bytes()))
+            p_output.write_bytes(output_file_content)
     elif args.batch_compress:
         logging.info("### Batch Compress")
         p_output.mkdir(exist_ok=True)
@@ -370,8 +384,10 @@ if __name__ == '__main__':
                 continue
 
             logging.info(f"Decompressing {filename}")
-            with open(p_output / (Path(filename).stem+".dat"), 'wb') as uncompressed, open(p_input / filename, 'rb') as compressed:
-                uncompressed.write(pzz_decompress(compressed.read()))
+            with open(p_input / filename, 'rb') as compressed:
+                uncompressed_content = pzz_decompress(compressed.read())
+                with open(p_output / Path(filename).with_suffix(get_file_ext(uncompressed_content)), 'wb') as uncompressed :
+                    uncompressed.write(uncompressed_content)
     elif args.pack:
         logging.info("### Pack")
         pzz_pack(p_input, p_output)
