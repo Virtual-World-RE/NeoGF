@@ -6,6 +6,15 @@ Pour plus d'info sur le jeu, rendez vous sur le [Wiki](http://re.wiki.virtualwor
 ## pzztool.py
 Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archive.
 
+### How to patch a pzz
+1. extract afs_data.afs from the ROM
+2. extract the pzz file from afs_data.afs
+3. unpzz it
+4. edit files in decompressed folder keeping the filename important parts inchanged (see "Extracted files format" for further informations)
+5. pzz the decompressed folder
+6. import back the patched pzz in the afs_data.afs
+7. patch the ROM with new afs_data.afs
+
 ### User manual
 unpzz **source.pzz** in the default new folder _source_. If optional_dest_folder is specified we unpack in _optional_dest_folder_. unpzz handle auto-decompress of all files extracted.
 ```
