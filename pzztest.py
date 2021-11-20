@@ -6,7 +6,7 @@ import pzztool
 import shutil
 
 
-TPL_MAGIC_FILE = b"\x00\x20\xAF\x30" # http://virtualre.rf.gd/index.php/TPL_(Format_de_fichier)
+TPL_MAGIC_NUMBER = b"\x00\x20\xAF\x30" # http://virtualre.rf.gd/index.php/TPL_(Format_de_fichier)
 
 
 
@@ -27,24 +27,23 @@ def get_argparser():
     parser.add_argument('input_path',  metavar='INPUT',  help='')
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-tdc',  '--test-decompress-compress',  action='store_true', help="")
-    group.add_argument('-tbup', '--test-batch-unpack-pack',    action='store_true', help="""
+    group.add_argument('-tdc',  '--test-decompress-compress',   action='store_true', help="")
+    group.add_argument('-tbup', '--test-batch-unpack-pack',     action='store_true', help="""
         -tbup source_pzz_folder
             source_pzz_folder  : put all pzz in this folder
             pzzu : will be created with all unpacked pzz from pzz folder
             pzz2 : will be created with all packed pzz from pzzu folder
         print file_name when sha256 is different between source_pzz_folder and pzz2 folder""")
-    group.add_argument('-tbunpzzpzz', '--test-batch-unpzz-pzz',    action='store_true', help="""
+    group.add_argument('-tbunpzzpzz', '--test-batch-unpzz-pzz', action='store_true', help="""
         -tbunpzzpzz source_pzz_folder
             source_pzz_folder  : put all pzz in this folder
             pzzu : will be created with all unpzz pzz from pzz folder
             pzz2 : will be created with all pzz(pzz_folder) from pzzu folder
         print file_name when sha256 is different between source_pzz_folder and pzz2 folder""")
     group.add_argument('-tctplh', '--test-check-tpl-headers',   action='store_true', help="-tctplh afs_data_folder : check all files headers in the afs_data and print those who have the tpl magicfile")
-    group.add_argument('-td', '--test-decompress',              action='store_true', help="""
+    group.add_argument('-tcd', '--test-check-decompress',       action='store_true', help="""
         pzz : put all pzz in this folder
-        then tip "pzztool.py -td"
-        decompressed_tpl_files : will be created with all decompressed files from pzzu having the tpl header
+        then tip "pzztool.py -tcd pzz"
         The script will then check that tpls are correctly decompressed with their specific characteristics""")
     return parser
 
@@ -103,16 +102,26 @@ if __name__ == '__main__':
         os.system("python pzztool.py -bpzz pzzu pzz2")
         verify_sha256(p_input, Path("pzz2"))
     elif args.test_check_tpl_headers:
-        # Démontre que SEUL les TPLs ont ce magicfile
+        # Démontre que SEUL les TPLs ont ce magicnumber
         # TEST OK
         print("# TEST : CHECK TPLs HEADERS")
         for afs_data_filename in os.listdir(p_input):
             with open(p_input / afs_data_filename, "rb") as afs_data_file:
-                if TPL_MAGIC_FILE == afs_data_file.read(4) and Path(afs_data_filename).suffix != ".tpl":
+                if TPL_MAGIC_NUMBER == afs_data_file.read(4) and Path(afs_data_filename).suffix != ".tpl":
                     print(f"TPL magicfile found : afs_data.afs/{afs_data_filename}")
     elif args.test_check_decompress:
         print("# TEST : CHECK DECOMPRESS")
-        # create decompressed_tpl_files folder
-        # copy pzzu files having the tpl header inside decompressed_tpl_files
-        # check that the length is a multiple of 32
+        # os.system(f"python pzztool.py -bunpzz {args.input_path} pzzu")
+
+        invalid_files_count = 0
+        total = 0
+        # check that all TPLs length is a multiple of 32
+        for p in Path("pzzu").glob("**/*.tpl"):
+            if p.is_file():
+                #print(Path(p).stat().st_size)
+                total+=1
+                if (Path(p).stat().st_size % 32) != 0:
+                    print(f"Invalid TPL file length modulo 32 ({Path(p).stat().st_size % 32}) - {p}")
+                    invalid_files_count += 1
+        print(f"Invalid files : {invalid_files_count}/{total}")
  
