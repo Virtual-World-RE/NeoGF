@@ -21,13 +21,28 @@ BIT_COMPRESSION_FLAG = 0x40000000
 FILE_LENGTH_MASK = 0x3FFFFFFF
 CHUNK_SIZE = 0x800
 TPL_MAGIC_NUMBER = b"\x00\x20\xAF\x30" # http://virtualre.rf.gd/index.php/TPL_(Format_de_fichier)
+CHD_MAGIC_NUMBER = b"Head"
+BIN_HITS_MAGICNUMBER = b"STIH"
+TSB_MAGIC_NUMBER = b"TSBD"
 
-
-def get_file_ext(file_content: bytes):
+def get_file_path(file_content: bytes, path: Path):
+    if path.name[5:7] == "pl": # si c'est un plxxxx
+        if path.name[0:3] == "000":
+            return path.with_name(path.name + "data").with_suffix(".bin")
+        if path.name[0:3] == "002":
+            return path.with_name(path.name + "hit").with_suffix(".bin")
+        if path.name[0:3] == "003":
+            return path.with_name(path.name + "mot").with_suffix(".bin")
     if file_content.startswith(TPL_MAGIC_NUMBER):
-        return ".tpl"
+        return path.with_suffix(".tpl")
+    if file_content.startswith(CHD_MAGIC_NUMBER):
+        return path.with_suffix(".chd")
+    if file_content.startswith(TSB_MAGIC_NUMBER):
+        return path.with_suffix(".tsb")
+    if file_content.startswith(BIN_HITS_MAGICNUMBER):
+        return path.with_suffix(".bin")
     # Par défaut
-    return ".dat"
+    return path.with_suffix(".dat")
 
 # Non implémenté : pour supprimer le pad à la fin des fichiers unpack
 # Les fichiers sans pad se terminent éventuellement par des b"\x00"
@@ -227,7 +242,7 @@ def pzz_unpack(pzz_path: Path, dest_folder: Path, auto_decompress: bool = False)
             if not auto_decompress and compression_status != 'U':
                 file_path = file_path.with_suffix(".pzzp")
             else:
-                file_path = file_path.with_suffix(get_file_ext(file_content))
+                file_path = get_file_path(file_content, file_path)
 
             file_path.write_bytes(file_content)
 
@@ -358,7 +373,7 @@ if __name__ == '__main__':
             logging.warning(f"Ignored - {p_input} - bad extension - must be a pzzp")
         else:
             output_file_content = pzz_decompress(p_input.read_bytes())
-            p_output = p_output.with_suffix(get_file_ext(output_file_content))
+            p_output = get_file_path(output_file_content, p_output)
             logging.info(f"Decompressing {p_input} in {p_output}")
             p_output.write_bytes(output_file_content)
     elif args.batch_compress:
@@ -384,7 +399,7 @@ if __name__ == '__main__':
                 continue
             logging.info(f"Decompressing {filename}")
             uncompressed_content = pzz_decompress((p_input / filename).read_bytes())
-            uncompressed_path = p_output / Path(filename).with_suffix(get_file_ext(uncompressed_content))
+            uncompressed_path = get_file_path(uncompressed_content, p_output / Path(filename))
             uncompressed_path.write_bytes(uncompressed_content)
     elif args.pack:
         logging.info("### Pack")
