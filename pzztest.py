@@ -9,13 +9,12 @@ import shutil
 TPL_MAGIC_NUMBER = b"\x00\x20\xAF\x30" # http://virtualre.rf.gd/index.php/TPL_(Format_de_fichier)
 
 
-
 # compare le sha256 de chaque PZZ des dossiers passés en argument
 #     -> affiche le nom de fichier en cas de différence
 def verify_sha256(folder1: Path, folder2: Path):
     invalid_files_count = 0
     for pzz_file_name in os.listdir(folder1):
-        with open(folder1 / pzz_file_name, "rb") as f1, open(folder2 / pzz_file_name, "rb") as f2:
+        with (folder1 / pzz_file_name).open("rb") as f1, (folder2 / pzz_file_name).open("rb") as f2:
             if hashlib.sha256( f1.read() ).hexdigest() != hashlib.sha256( f2.read() ).hexdigest() :
                 print(f"ERROR - INVALID FILE : {pzz_file_name}")
                 invalid_files_count +=1
@@ -111,14 +110,14 @@ if __name__ == '__main__':
                     print(f"TPL magicfile found : afs_data.afs/{afs_data_filename}")
     elif args.test_check_decompress:
         print("# TEST : CHECK DECOMPRESS")
-        # os.system(f"python pzztool.py -bunpzz {args.input_path} pzzu")
+        os.system(f"python pzztool.py -bunpzz {args.input_path} pzzu")
 
         invalid_files_count = 0
         total = 0
         # check that all TPLs length is a multiple of 32
         for p in Path("pzzu").glob("**/*.tpl"):
             if p.is_file():
-                #print(Path(p).stat().st_size)
+                #print(Path(p).stat().st_size, end=' ')
                 total+=1
                 if (Path(p).stat().st_size % 32) != 0:
                     print(f"Invalid TPL file length modulo 32 ({Path(p).stat().st_size % 32}) - {p}")
