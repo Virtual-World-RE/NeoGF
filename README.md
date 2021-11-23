@@ -1,50 +1,72 @@
 # NeoGF
 NeoGF is a library of tools for Gotcha Force.
 
-Pour plus d'info sur le jeu, rendez vous sur le [Wiki](http://re.wiki.virtualworld.fr/index.php/Gotcha_Force).
+> This project is still under "heavy" development. It not yet 100% ready to use.
+> 
+> Do not hesitate to contribute.
+
+If you want more infos about the game, go read our [Gotcha Force Wiki](http://re.wiki.virtualworld.fr/index.php/Gotcha_Force).
 
 ## pzztool.py
 Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archive.
 
 ### How to patch a pzz
-1. extract afs_data.afs from the ROM
-2. extract the pzz file from afs_data.afs
+1. Extract afs_data.afs from the ROM
+2. Extract the pzz file from afs_data.afs
 3. unpzz it
-4. edit files in decompressed folder keeping the filename important parts inchanged (see "Extracted files format" for further informations)
-5. pzz the decompressed folder
-6. import back the patched pzz in the afs_data.afs
-7. patch the ROM with new afs_data.afs
+6. Edit files in decompressed folder keeping the filename important parts inchanged (see "Extracted files format" for further informations)
+7. pzz the decompressed folder
+8. Import back the patched pzz in the afs_data.afs
+9. Patch the ROM with new afs_data.afs
 
 ### User manual
-unpzz **source.pzz** in the default new folder _source_. If optional_dest_folder is specified we unpack in _optional_dest_folder_. unpzz handle auto-decompress of all files extracted.
+unpzz **source.pzz** in the default new folder _source_.
+If optional_dest_folder is specified we unpack in _optional_dest_folder_.
+unpzz handle auto-decompress of all files extracted.
 ```
 pzztool.py -unpzz source.pzz optional_dest_folder
 ```
-pzz **source_folder** in the default new pzz file _source_folder.pzz_. If optional_dest.pzz is specified we pzz in _optional_dest.pzz_. pzz handle auto-compress / auto-decompress of all files extracted from the pzz according to their initial states in the pzz.
+pzz **source_folder** in the default new pzz file _source_folder.pzz_.
+If optional_dest.pzz is specified we pzz in _optional_dest.pzz_.
+pzz handle auto-compress / auto-decompress of all files extracted from the pzz according to their initial states in the pzz.
 ```
 pzztool.py -pzz source_folder optional_dest.pzz
 ```
-unpzz every pzz files present in _source_folder_ using the same directory. For each pzz a folder is created using the name of the pzz. If optional_dest_folder is specified we unpzz all files in _optional_dest_folder_ instead of source_folder. The batch pzz command could be very time consuming (1h30 for whole pzz in afs_data).
+unpzz every pzz files present in _source_folder_ using the same directory.
+For each pzz a folder is created using the name of the pzz.
+If optional_dest_folder is specified we unpzz all files in _optional_dest_folder_ instead of source_folder.
+The batch pzz command could be very time consuming (1h30 for whole pzz in afs_data).
 ```
 pzztool.py -bunpzz source_folder optional_dest_folder
 ```
-pzz every folder present in _source_folder_ using the same directory. For each folder a pzz file is created using the name of the pzz. If optional_dest_folder is specified we pzz all folders in _optional_dest_folder_ instead of source_folder. The batch pzz command could be very time consuming (1h30 for whole pzz in afs_data).
+pzz every folder present in _source_folder_ using the same directory.
+For each folder a pzz file is created using the name of the pzz.
+If optional_dest_folder is specified we pzz all folders in _optional_dest_folder_ instead of source_folder.
+The batch pzz command could be very time consuming (1h30 for whole pzz in afs_data).
 ```
 pzztool.py -bpzz source_folder optional_dest_folder
 ```
-Unpack **source.pzz** in the default new folder _source_. If optional_dest_folder is specified we unpack in _optional_dest_folder_. This is faster than unpzz but compression must be handled by user after the unpack.
+Unpack **source.pzz** in the default new folder _source_.
+If optional_dest_folder is specified we unpack in _optional_dest_folder_.
+This is faster than unpzz but compression must be handled by user after the unpack.
 ```
 pzztool.py -u source.pzz optional_dest_folder
 ```
-Pack **source_folder** in the default new pzz file _source_folder.pzz_. If optional_dest.pzz is specified we pack in _optional_dest.pzz_. This is faster than pzz but compression must be handled by user before the pack.
+Pack **source_folder** in the default new pzz file _source_folder.pzz_.
+If optional_dest.pzz is specified we pack in _optional_dest.pzz_.
+This is faster than pzz but compression must be handled by user before the pack.
 ```
 pzztool.py -p source_folder optional_dest.pzz
 ```
-Unpack every pzz files present in _source_folder_ using the same directory. For each pzz a folder is created using the name of the pzz. If optional_dest_folder is specified we unpack all files in _optional_dest_folder_ instead of source_folder.
+Unpack every pzz files present in _source_folder_ using the same directory.
+For each pzz a folder is created using the name of the pzz.
+If optional_dest_folder is specified we unpack all files in _optional_dest_folder_ instead of source_folder.
 ```
 pzztool.py -bu source_folder optional_dest_folder
 ```
-Pack every folder present in _source_folder_ using the same directory. For each folder a pzz file is created using the name of the pzz. If optional_dest_folder is specified we pack all folders in _optional_dest_folder_ instead of source_folder.
+Pack every folder present in _source_folder_ using the same directory.
+For each folder a pzz file is created using the name of the pzz.
+If optional_dest_folder is specified we pack all folders in _optional_dest_folder_ instead of source_folder.
 ```
 pzztool.py -bp source_folder optional_dest_folder
 ```
