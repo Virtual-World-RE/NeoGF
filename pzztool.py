@@ -6,7 +6,7 @@ from struct import unpack
 from os import listdir
 import logging
 
-__version__ = "1.4.1"
+__version__ = "1.4.2"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
@@ -53,6 +53,9 @@ def remove_padding(file_content: bytearray):
 
 
 def bytes_align(bout: bytes):
+    # Comme le montre le fichier pl080d/006C_pl080d.pzzp, on ajoute 0x800 si c'est aligné sur un multiple
+    if len(bout) % CHUNK_SIZE == 0:
+        return bout.ljust(CHUNK_SIZE * (len(bout) / CHUNK_SIZE + 1), b"\x00")
     return bout.ljust(CHUNK_SIZE * ceil(len(bout) / CHUNK_SIZE), b"\x00")
 
 
@@ -350,7 +353,7 @@ if __name__ == '__main__':
     p_output = Path(args.output_path)
 
     if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
 
     if args.compress:
         logging.info("### Compress")
