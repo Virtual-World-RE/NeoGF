@@ -6,7 +6,7 @@ from struct import unpack
 from os import listdir
 import logging
 
-__version__ = "0.14.3"
+__version__ = "0.14.4"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
@@ -27,7 +27,8 @@ TSB_MAGIC_NUMBER = b"TSBD"
 ICON_MAGIC_NUMBER = b"GOTCHA FORCE"
 
 def get_file_path(file_content: bytes, path: Path):
-    if path.name[5:7] == "pl": # si c'est un plxxxx
+    # Attention à l'implémentation de 001 pour les dpxxxx
+    if path.name[5:7] == "pl" or path.name[5:7] == "dp": # si c'est un plxxxx ou un dpxxxx.pzz
         if path.name[0:3] == "000":
             return path.with_name(path.name + "data").with_suffix(".bin")
         if path.name[0:3] == "002":
@@ -46,6 +47,11 @@ def get_file_path(file_content: bytes, path: Path):
             return path.with_name(path.name + "c_mdl").with_suffix(".arc")
         if path.name[0:3] == "009":
             return path.with_name(path.name + "k_mdl").with_suffix(".arc")
+    elif path.name[5:9] == "efct":
+        if path.name[0:3] == "001":
+            return path.with_name(path.name + "00_mdl").with_suffix(".arc")
+        if path.name[0:3] == "002":
+            return path.with_name(path.name + "01_mdl").with_suffix(".arc")
     elif file_content.startswith(ICON_MAGIC_NUMBER):
         return path.with_name(path.name + "icon").with_suffix(".bin")
     if file_content.startswith(TPL_MAGIC_NUMBER):
@@ -76,7 +82,9 @@ def bytes_align_compress(bout: bytes):
 
 def bytes_align_decompress(bout: bytes, path: Path):
     # Suite à la décompression, on réajuste la taille en fonction du format du fichier
-    if path.name[5:7] == "pl" and path.suffix == ".arc":
+    if  path.name[5:7] == "pl" and path.suffix == ".arc" or \
+        path.name[5:7] == "dp" and path.suffix == ".arc" or \
+        path.name[5:9] == "efct" and path.suffix == ".arc":
         return bout[:-1]
     return bout
 
