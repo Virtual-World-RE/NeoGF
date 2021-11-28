@@ -8,7 +8,7 @@ NeoGF is a library of tools for Gotcha Force.
 If you want more infos about the game, go read our [Gotcha Force Wiki](http://re.wiki.virtualworld.fr/index.php/Gotcha_Force).
 
 ## pzztool.py
-Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archive. MDT file is also handled by pzztool.py. Files in .mdt are stored uncompressed.
+Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archive. MDT files are also handled by pzztool.py.
 
 ### How to patch a pzz
 1. Extract afs_data.afs from the ROM
