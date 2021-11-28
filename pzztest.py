@@ -20,10 +20,19 @@ def verify_sha256(folder1: Path, folder2: Path):
                 invalid_files_count +=1
     print(f"Invalid files : {invalid_files_count}/{len(os.listdir(folder1))}")
 
+# compare le sha256 des deux fichiers passés en argument
+#     -> affiche le nom de fichier en cas de différence
+def verify_sha256_2(file1: Path, file2: Path):
+    with file1.open("rb") as f1, file2.open("rb") as f2:
+        if hashlib.sha256( f1.read() ).hexdigest() != hashlib.sha256( f2.read() ).hexdigest() :
+            return False
+    return True
+
 
 def get_argparser():
     parser = argparse.ArgumentParser(description='TEST TOOL')
     parser.add_argument('input_path',  metavar='INPUT',  help='')
+    parser.add_argument('output_path', metavar='OUTPUT', help='', nargs='?', default="")
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-tdc',  '--test-decompress-compress',   action='store_true', help="")
@@ -44,6 +53,7 @@ def get_argparser():
         pzz : put all pzz in this folder
         then tip "pzztool.py -tcd pzz"
         The script will then check that tpls are correctly decompressed with their specific characteristics""")
+    group.add_argument('-tcp', '--test-compare-position',   action='store_true', help="compare plxxxx.pzz subfiles with plxxxx files inside afs_data.afs")
     return parser
 
 
@@ -123,4 +133,28 @@ if __name__ == '__main__':
                     print(f"Invalid TPL file length modulo 32 ({Path(p).stat().st_size % 32}) - {p}")
                     invalid_files_count += 1
         print(f"Invalid files : {invalid_files_count}/{total}")
- 
+    elif args.test_compare_position:
+        # FULL_AFS_FILE_DUMP contient tous les fichiers de l'afs_data.afs et pzzu le résultat de pzztool.py -bunpzz sur l'ensemble des pzz
+        # Comparaisons à effectuer :
+        # pzztest.py -tcp 0 data.bin
+        #     Les fichiers de l'afs_data sont parfois data2 / data3 ou absents
+        # pzztest.py -tcp 2 hit.bin
+        # pzztest.py -tcp 3 mot.bin
+        # pzztest.py -tcp 4 _mdl.arc
+        # pzztest.py -tcp 5 b_mdl.arc
+        # pzztest.py -tcp 6 g_mdl.arc
+        # pzztest.py -tcp 7 s_mdl.arc
+        # pzztest.py -tcp 8 c_mdl.arc
+        # pzztest.py -tcp 9 k_mdl.arc
+
+        for pzzpart_path in Path("pzzu").glob("**/00"+args.input_path+"*"):
+            file_path = Path("FULL_AFS_FILE_DUMP/"+pzzpart_path.parent.name+args.output_path)
+
+            if pzzpart_path.parent.name[:2] == "pl":
+                if not file_path.is_file():
+                    print(f"File doesn't exist : {file_path}")
+                elif pzzpart_path.stat().st_size == 0:
+                    print(f"File is empty : {pzzpart_path}")
+                else:
+                    if not verify_sha256_2(pzzpart_path, file_path):
+                        print(f"DIFFERENCE : {pzzpart_path} - {file_path}")
