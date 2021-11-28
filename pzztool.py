@@ -6,7 +6,7 @@ from struct import unpack
 from os import listdir
 import logging
 
-__version__ = "0.14.4"
+__version__ = "0.14.5"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
@@ -208,8 +208,8 @@ def pzz_compress(uncompressed_bytes: bytes):
 
 
 def pzz_unpack(pzz_path: Path, dest_folder: Path, auto_decompress: bool = False):
-    if pzz_path.suffix != ".pzz":
-        logging.warning(f"Invalid file format '{pzz_path.suffix}'; it should be .pzz file format")
+    if pzz_path.suffix != ".pzz" and  pzz_path.suffix != ".mdt":
+        logging.warning(f"Invalid file format '{pzz_path.suffix}'; it should be .pzz or .mdt file format")
 
     if dest_folder != Path('.'):
         unpacked_pzz_path = dest_folder
@@ -287,8 +287,8 @@ def pzz_unpack(pzz_path: Path, dest_folder: Path, auto_decompress: bool = False)
 def pzz_pack(src_path: Path, dest_file: Path, auto_compress: bool = False):
     if dest_file == Path('.'):
         dest_file = src_path.with_suffix(".pzz")
-    if dest_file.suffix != ".pzz":
-        logging.warning(f"Invalid file format '{dest_file.suffix}' : dest must be a pzz")
+    if dest_file.suffix != ".pzz" and pzz_path.suffix != ".mdt":
+        logging.warning(f"Invalid file format '{dest_file.suffix}' : dest must be a pzz or mdt")
 
     # On récupère les fichiers du dossier à compresser
     src_files = listdir(src_path)
@@ -352,7 +352,7 @@ def pzz(src_path: Path, dest_file: Path):
 
 def get_argparser():
     import argparse
-    parser = argparse.ArgumentParser(description='PZZ (de)compressor & unpacker - [GameCube] Gotcha Force v' + __version__)
+    parser = argparse.ArgumentParser(description='PZZ / MDT (de)compressor & unpacker - [GameCube] Gotcha Force v' + __version__)
     parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
     parser.add_argument('-di', '--disable-ignore', action='store_true', help="Disable .pzzp or .pzz file extension verification.")
