@@ -391,7 +391,8 @@ if __name__ == '__main__':
             # Si on a pas la bonne extension on ne compresse pas le fichier
             if not args.disable_ignore and Path(filename).suffix == ".pzzp":
                 logging.warning(f"Ignored - {filename} - bad extension - musn't be a pzzp")
-                shutil.copy(p_input / filename, p_output / filename)
+                if p_input != p_output:
+                    shutil.copy(p_input / filename, p_output / filename)
                 continue
             logging.info(f"Compressing {filename}")
             (p_output / (Path(filename).stem + ".pzzp")).write_bytes(pzz_compress((p_input / filename).read_bytes()))
@@ -404,7 +405,8 @@ if __name__ == '__main__':
         for filename in listdir(p_input):
             if not args.disable_ignore and Path(filename).suffix != ".pzzp":
                 logging.warning(f"Ignored - {filename} - bad extension - must be a pzzp")
-                shutil.copy(p_input / filename, p_output / filename)
+                if p_input != p_output:
+                    shutil.copy(p_input / filename, p_output / filename)
                 continue
             logging.info(f"Decompressing {filename}")
             uncompressed_content = pzz_decompress((p_input / filename).read_bytes())
