@@ -24,6 +24,7 @@ TPL_MAGIC_NUMBER = b"\x00\x20\xAF\x30" # http://virtualre.rf.gd/index.php/TPL_(F
 CHD_MAGIC_NUMBER = b"Head"
 BIN_HITS_MAGICNUMBER = b"STIH"
 TSB_MAGIC_NUMBER = b"TSBD"
+ICON_MAGIC_NUMBER = b"GOTCHA FORCE"
 
 def get_file_path(file_content: bytes, path: Path):
     if path.name[5:7] == "pl": # si c'est un plxxxx
@@ -33,6 +34,8 @@ def get_file_path(file_content: bytes, path: Path):
             return path.with_name(path.name + "hit").with_suffix(".bin")
         if path.name[0:3] == "003":
             return path.with_name(path.name + "mot").with_suffix(".bin")
+    elif file_content.startswith(ICON_MAGIC_NUMBER):
+        return path.with_name(path.name + "icon").with_suffix(".bin")
     if file_content.startswith(TPL_MAGIC_NUMBER):
         return path.with_suffix(".tpl")
     if file_content.startswith(CHD_MAGIC_NUMBER):
