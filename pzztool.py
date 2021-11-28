@@ -75,8 +75,8 @@ def remove_padding(file_content: bytearray):
 
 def bytes_align_compress(bout: bytes):
     # Comme le montre le fichier pl080d/006C_pl080d.pzzp, on ajoute 0x800 si c'est aligné sur un multiple
-    #if len(bout) % CHUNK_SIZE == 0:
-    #    return bout.ljust(CHUNK_SIZE * int(len(bout) / CHUNK_SIZE + 1), b"\x00")
+    if len(bout) % CHUNK_SIZE == 0:
+        return bout.ljust(CHUNK_SIZE * int(len(bout) / CHUNK_SIZE + 1), b"\x00")
     return bout.ljust(CHUNK_SIZE * ceil(len(bout) / CHUNK_SIZE), b"\x00")
 
 
@@ -132,7 +132,7 @@ def pzz_decompress(compressed_bytes: bytes):
 
 
 def pzz_compress(uncompressed_bytes: bytes):
-    uncompressed_bytes += b"\x00"
+    uncompressed_bytes += b"\x00" # l'ajout de padding ne change pas le resultat de la compression
     compressed_bytes = bytearray(2)
     size_uncompressed_bytes = len(uncompressed_bytes) // 2 * 2
 
