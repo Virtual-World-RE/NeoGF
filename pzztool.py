@@ -34,6 +34,18 @@ def get_file_path(file_content: bytes, path: Path):
             return path.with_name(path.name + "hit").with_suffix(".bin")
         if path.name[0:3] == "003":
             return path.with_name(path.name + "mot").with_suffix(".bin")
+        if path.name[0:3] == "004":
+            return path.with_name(path.name + "_mdl").with_suffix(".arc")
+        if path.name[0:3] == "005":
+            return path.with_name(path.name + "b_mdl").with_suffix(".arc")
+        if path.name[0:3] == "006":
+            return path.with_name(path.name + "g_mdl").with_suffix(".arc")
+        if path.name[0:3] == "007":
+            return path.with_name(path.name + "s_mdl").with_suffix(".arc")
+        if path.name[0:3] == "008":
+            return path.with_name(path.name + "c_mdl").with_suffix(".arc")
+        if path.name[0:3] == "009":
+            return path.with_name(path.name + "k_mdl").with_suffix(".arc")
     elif file_content.startswith(ICON_MAGIC_NUMBER):
         return path.with_name(path.name + "icon").with_suffix(".bin")
     if file_content.startswith(TPL_MAGIC_NUMBER):
@@ -55,11 +67,18 @@ def remove_padding(file_content: bytearray):
     # return file_content.rstrip(b'\x00')
 
 
-def bytes_align(bout: bytes):
+def bytes_align_compress(bout: bytes):
     # Comme le montre le fichier pl080d/006C_pl080d.pzzp, on ajoute 0x800 si c'est aligné sur un multiple
     if len(bout) % CHUNK_SIZE == 0:
         return bout.ljust(CHUNK_SIZE * (len(bout) / CHUNK_SIZE + 1), b"\x00")
     return bout.ljust(CHUNK_SIZE * ceil(len(bout) / CHUNK_SIZE), b"\x00")
+
+
+def bytes_align_decompress(bout: bytes, path: Path):
+    # Suite à la décompression, on réajuste la taille en fonction du format du fichier
+    if path.name[5:7] == "pl" and path.suffix == ".arc":
+        return bout[:-1]
+    return bout
 
 
 def pzz_decompress(compressed_bytes: bytes):
@@ -177,7 +196,7 @@ def pzz_compress(uncompressed_bytes: bytes):
     compressed_bytes[cb_pos:cb_pos + 2] = cb.to_bytes(2, "big")
     compressed_bytes += b"\x00\x00"
 
-    return bytes_align(compressed_bytes)
+    return bytes_align_compress(compressed_bytes)
 
 
 def pzz_unpack(pzz_path: Path, dest_folder: Path, auto_decompress: bool = False):
@@ -250,7 +269,7 @@ def pzz_unpack(pzz_path: Path, dest_folder: Path, auto_decompress: bool = False)
             else:
                 file_path = get_file_path(file_content, file_path)
 
-            file_path.write_bytes(file_content)
+            file_path.write_bytes(bytes_align_decompress(file_content, file_path))
 
             # Enfin, on ajoute la taille du fichier afin de pointer sur le fichier suivant
             # La taille du fichier étant un multiple de CHUNK_SIZE, on aura complété les 2048 octets finaux avec des 0x00
@@ -383,7 +402,7 @@ if __name__ == '__main__':
             output_file_content = pzz_decompress(p_input.read_bytes())
             p_output = get_file_path(output_file_content, p_output)
             logging.info(f"Decompressing {p_input} in {p_output}")
-            p_output.write_bytes(output_file_content)
+            p_output.write_bytes(bytes_align_decompress(output_file_content, p_output))
     elif args.batch_compress:
         logging.info("### Batch Compress")
         if(p_output == Path(".")):
@@ -414,7 +433,7 @@ if __name__ == '__main__':
             logging.info(f"Decompressing {filename}")
             uncompressed_content = pzz_decompress((p_input / filename).read_bytes())
             uncompressed_path = get_file_path(uncompressed_content, p_output / Path(filename))
-            uncompressed_path.write_bytes(uncompressed_content)
+            uncompressed_path.write_bytes(bytes_align_decompress(uncompressed_content, uncompressed_path))
     elif args.pack:
         logging.info("### Pack")
         pzz_pack(p_input, p_output)
