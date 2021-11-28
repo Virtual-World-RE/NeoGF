@@ -6,7 +6,7 @@ from struct import unpack
 from os import listdir
 import logging
 
-__version__ = "0.14.2"
+__version__ = "0.14.3"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
@@ -258,7 +258,7 @@ def pzz_pack(src_path: Path, dest_file: Path, auto_compress: bool = False):
     if dest_file == Path('.'):
         dest_file = src_path.with_suffix(".pzz")
     if dest_file.suffix != ".pzz":
-        logging.warning("Invalid file format : dest must be a pzz")
+        logging.warning(f"Invalid file format '{dest_file.suffix}' : dest must be a pzz")
 
     # On récupère les fichiers du dossier à compresser
     src_files = listdir(src_path)
@@ -361,7 +361,9 @@ if __name__ == '__main__':
             p_output = Path(p_input.with_suffix(".pzzp"))
 
         # Si on a pas la bonne extension on ne compresse pas le fichier
-        if not args.disable_ignore and p_output.suffix != ".pzzp":
+        if not args.disable_ignore and p_input.suffix == ".pzzp":
+            logging.warning(f"Ignored - {p_input} - bad extension - must not be a pzzp")
+        elif not args.disable_ignore and p_output.suffix != ".pzzp":
             logging.warning(f"Ignored - {p_output} - bad extension - must be a pzzp")
         else:
             logging.info(f"Compressing {p_input} in {p_output}")
@@ -381,6 +383,8 @@ if __name__ == '__main__':
             p_output.write_bytes(output_file_content)
     elif args.batch_compress:
         logging.info("### Batch Compress")
+        if(p_output == Path(".")):
+            p_output = Path(p_input)
         p_output.mkdir(exist_ok=True)
 
         for filename in listdir(p_input):
@@ -393,6 +397,8 @@ if __name__ == '__main__':
             (p_output / (Path(filename).stem + ".pzzp")).write_bytes(pzz_compress((p_input / filename).read_bytes()))
     elif args.batch_decompress:
         logging.info("### Batch Decompress")
+        if(p_output == Path(".")):
+            p_output = Path(p_input)
         p_output.mkdir(exist_ok=True)
 
         for filename in listdir(p_input):
