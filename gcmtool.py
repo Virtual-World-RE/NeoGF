@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import logging
 
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
