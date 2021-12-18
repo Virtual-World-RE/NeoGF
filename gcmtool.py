@@ -13,7 +13,7 @@ DVD_MAGIC = b"\xC2\x33\x9F\x3D"
 FST_TYPE_FILE = 0
 FST_TYPE_DIR = 1
 
-
+# BUG TO FIX : implement dest folder/file handling when given to unpack or pack.
 ######################################################################
 # Todo : add logging ; add extension check ; add --verbose ; add --disable-ignore
 # -> test it on random iso and check that it's the same than dolphin extract
