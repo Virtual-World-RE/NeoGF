@@ -13,7 +13,7 @@ DVD_MAGIC = b"\xC2\x33\x9F\x3D"
 FST_TYPE_FILE = 0
 FST_TYPE_DIR = 1
 
-# BUG TO FIX : implement dest folder/file handling when given to unpack or pack.
+
 ######################################################################
 # Todo : add logging ; add extension check ; add --verbose ; add --disable-ignore
 # -> test it on random iso and check that it's the same than dolphin extract
@@ -33,7 +33,7 @@ class Dol:
 
 # https://sudonull.com/post/68549-Gamecube-file-system-device
 class GCM:
-    def unpack(self, iso_path:Path):
+    def unpack(self, iso_path:Path, folder_path:Path):
         with iso_path.open("rb") as iso_file:
             bootbin_data = iso_file.read(0x440)
             if bootbin_data[0x1c:0x20] != DVD_MAGIC:
@@ -52,8 +52,8 @@ class GCM:
             iso_file.seek(0x2440)
             apploaderimg_data = iso_file.read(apploader_size)
 
-            print( 0x2440 + apploader_size )
-            print("fst.bin :", int.from_bytes(bootbin_data[0x424:0x428],"big", signed=False), int.from_bytes(bootbin_data[0x428:0x42c],"big", signed=False))
+            #print( 0x2440 + apploader_size )
+            #print("fst.bin :", int.from_bytes(bootbin_data[0x424:0x428],"big", signed=False), int.from_bytes(bootbin_data[0x428:0x42c],"big", signed=False))
             
             iso_file.seek( int.from_bytes(bootbin_data[0x424:0x428],"big", signed=False) )
             fstbin_data = iso_file.read( int.from_bytes(bootbin_data[0x428:0x42c],"big", signed=False) )
@@ -63,8 +63,11 @@ class GCM:
             dol = Dol()
             dolheader_data = iso_file.read(0x100)
             bootdol_data = dolheader_data + iso_file.read( dol.getDolLen( dolheader_data ) - 0x100 )
-            print("dol :", dol_offset, dol.getDolLen( dolheader_data ))
-            base_path = Path(f"{bootbin_data[:4].decode('utf-8')}-{int.from_bytes(bootbin_data[6:7], 'little', signed=False):02}")
+            #print("dol :", dol_offset, dol.getDolLen( dolheader_data ))
+            if folder_path != Path("."):
+                base_path = folder_path
+            else:
+                base_path = Path(f"{bootbin_data[:4].decode('utf-8')}-{int.from_bytes(bootbin_data[6:7], 'little', signed=False):02}")
             sys_path = base_path / "sys"
             sys_path.mkdir(parents=True, exist_ok=True)
 
@@ -116,7 +119,9 @@ class GCM:
                     with (currentdir_path / name).open("wb") as new_file:
                         iso_file.seek(fileoffset)
                         new_file.write( iso_file.read(filesize) )
-                        print("file :", fileoffset, filesize)
+                        #print("file :", fileoffset, filesize)
+
+
     def pack(self, folder_path:Path, iso_path:Path = None):
         if iso_path == None:
             iso_path = folder_path.parent / Path(folder_path.name).with_suffix(".iso")
@@ -174,12 +179,11 @@ class GCM:
                 else:
                     fileoffset = int.from_bytes(fstbin_data[i+4:i+8], "big", signed=False)
                     filesize   = int.from_bytes(fstbin_data[i+8:i+12], "big", signed=False)
-                    print(fileoffset, filesize)
+                    #print(fileoffset, filesize)
 
                     with (currentdir_path / name).open("rb") as new_file:
                         iso_file.seek(fileoffset)
                         iso_file.write( new_file.read(filesize) )
-
 
 
 def get_argparser():
@@ -210,6 +214,4 @@ if __name__ == '__main__':
         gcm.pack( p_input, p_output )
     elif args.unpack:
         logging.info("### Unpack")
-        if(p_output == Path(".")):
-            p_output = Path(p_input.name)
         gcm.unpack( p_input, p_output )
