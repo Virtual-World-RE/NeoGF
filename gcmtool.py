@@ -360,7 +360,8 @@ class GCM:
         sys_path = folder_path / "sys"
         fst_tree = FstTree(root_path, self.__get_min_file_offset(sys_path), align=align)
 
-        for path in root_path.glob('**/*'):
+        path_list = sorted([path for path in root_path.glob('**/*')], key=lambda s:Path(str(s).upper()))
+        for path in path_list:
             fst_tree.add_node_by_path(path)
         logging.debug(fst_tree)
         fst_path = sys_path / "fst.bin"
