@@ -158,7 +158,7 @@ class FstTree:
             node.set_offset(self.__current_file_offset)
             self.__fst_block += node.format()
             self.__current_file_offset += node.size()
-            if self.__align != 0 and self.__current_file_offset % self.__align != 0:
+            if self.__current_file_offset % self.__align != 0:
                 self.__current_file_offset += self.__align - (self.__current_file_offset % self.__align)
     def get_fst(self):
         self.__current_file_offset += self.__get_fst_length()
@@ -421,5 +421,7 @@ if __name__ == '__main__':
         gcm.unpack( p_input, p_output )
     elif args.rebuild_fst:
         logging.info("### Rebuilding FST")
+        if args.align < 1:
+            raise Exception("Align must be > 0")
         logging.info(f"Using alignment : {args.align}")
         gcm.rebuild_fst(p_input, args.align)
