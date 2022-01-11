@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -28,6 +28,12 @@ ISO_APPLOADERSIZE_OFFSET = 0x2454
 # add info on unused randoms bytes on initial DVD iso file
 # -> that's why repack iso is different from initial iso
 ######################################################################
+def align(offset:int, align:int):
+    if offset % align != 0:
+        offset += align - (offset % align)
+    return align
+
+
 class Node:
     __id = None
     __type = None
@@ -112,10 +118,7 @@ class FstTree:
     # Needed to know where we can begin to write files
     def __get_fst_length(self):
         self.__generate_nameblock_length()
-        fst_len = self.__count_childs(self.__root_node)*12 + 12 + self.__nameblock_length
-        if fst_len % self.__align != 0:
-            fst_len += self.__align - (fst_len % self.__align)
-        return fst_len
+        return align(self.__count_childs(self.__root_node)*12 + 12 + self.__nameblock_length, self.__align)
     def __generate_nameblock_length(self, node:Node = None):
         if node == None:
             node = self.__root_node
@@ -157,9 +160,7 @@ class FstTree:
         else:
             node.set_offset(self.__current_file_offset)
             self.__fst_block += node.format()
-            self.__current_file_offset += node.size()
-            if self.__current_file_offset % self.__align != 0:
-                self.__current_file_offset += self.__align - (self.__current_file_offset % self.__align)
+            self.__current_file_offset = align(self.__current_file_offset + node.size(), self.__align)
     def get_fst(self):
         self.__current_file_offset += self.__get_fst_length()
         self.__prepare()
@@ -352,16 +353,12 @@ class GCM:
         root_path = folder_path / "root"
         sys_path = folder_path / "sys"
         with (sys_path / "boot.bin").open("rb+") as bootbin_file:
-            dol_offset = ISO_APPLOADER_OFFSET + (sys_path / "apploader.img").stat().st_size
-            if dol_offset % align != 0:
-                dol_offset += align - (dol_offset % align)
+            dol_offset = align(ISO_APPLOADER_OFFSET + (sys_path / "apploader.img").stat().st_size, align)
             logging.info(f"Patching sys/boot.bin offset 0x{BOOTBIN_DOLOFFSET_OFFSET:x} with new dol offset (0x{dol_offset:x})")
             bootbin_file.seek(BOOTBIN_DOLOFFSET_OFFSET)
             bootbin_file.write(dol_offset.to_bytes(4, "big"))
             
-            fst_offset = dol_offset + (sys_path / "boot.dol").stat().st_size
-            if fst_offset % align != 0:
-                fst_offset += align - (fst_offset % align)
+            fst_offset = align(dol_offset + (sys_path / "boot.dol").stat().st_size, align)
             logging.info(f"Patching sys/boot.bin offset 0x{BOOTBIN_FSTOFFSET_OFFSET:x} with new fst offset (0x{fst_offset:x})")
             bootbin_file.seek(BOOTBIN_FSTOFFSET_OFFSET)
             bootbin_file.write(fst_offset.to_bytes(4, "big"))
@@ -373,10 +370,12 @@ class GCM:
             for path in path_list:
                 fst_tree.add_node_by_path(path)
             logging.debug(fst_tree)
+
             fst_path = sys_path / "fst.bin"
             with fst_path.open("wb") as fstbin_file:
                 logging.info("Writing fst in sys/fst.bin")
                 fstbin_file.write( fst_tree.get_fst() )
+
             fst_size = fst_path.stat().st_size
             logging.info(f"Patching sys/boot.bin offset 0x{BOOTBIN_FSTLEN_OFFSET:x} with new fst size (0x{fst_size:x})")
             bootbin_file.seek(BOOTBIN_FSTLEN_OFFSET)
@@ -411,16 +410,16 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.DEBUG)
 
     if args.pack:
-        logging.info("### Pack")
+        logging.info("### Pack in new GCM iso")
         if(p_output == Path(".")):
             p_output = Path(p_input.with_suffix(".iso"))
         logging.info(f"packing folder {p_input} in {p_output}")
         gcm.pack( p_input, p_output )
     elif args.unpack:
-        logging.info("### Unpack")
+        logging.info("### Unpack GCM iso in new folder")
         gcm.unpack( p_input, p_output )
     elif args.rebuild_fst:
-        logging.info("### Rebuilding FST")
+        logging.info("### Rebuilding FST and patching boot.bin")
         if args.align < 1:
             raise Exception("Align must be > 0")
         logging.info(f"Using alignment : {args.align}")
