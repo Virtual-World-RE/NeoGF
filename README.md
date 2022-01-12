@@ -7,6 +7,33 @@ NeoGF is a library of tools for Gotcha Force.
 
 If you want more infos about the game, go read our [Gotcha Force Wiki](http://re.wiki.virtualworld.fr/index.php/Gotcha_Force).
 
+## gcmtool.py
+Python3 script for unpack/pack GCM iso files. This tool can rebuild FileStringTable (FST) of GCM and patch boot.bin with a new apploader.img, boot.dol, add/remove/edit of folder and files of the game.
+
+### User manual
+Unpack iso GCM file **game.iso** in folder **iso_extract**: (If the destination folder is not specified, it will use the game_code-DVD_number as folder.)
+```
+gcmtool.py -u game.iso iso_extract
+```
+Pack folder in iso :
+```
+gcmtool.py -p iso_extract game.iso
+```
+Rebuild FST and patch boot.bin for a new apploader, dol, and add/remove/edit of folders and files :
+```
+gcmtool.py -r iso_extract
+```
+Japanese charset is not handled for now.
+
+### Extracted file tree
+root folder contains all files of the extracted GCM iso
+sys folder contains GCM system files of the game :
+* boot.bin
+* bi2.bin
+* apploader.img
+* boot.dol
+* fst.bin
+
 ## pzztool.py
 Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archive. MDT files are also handled by pzztool.py.
 
