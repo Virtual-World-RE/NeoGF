@@ -27,6 +27,7 @@ Japanese charset is not handled for now.
 
 ### Extracted file tree
 root folder contains all files of the extracted GCM iso
+
 sys folder contains GCM system files of the game :
 * boot.bin
 * bi2.bin
