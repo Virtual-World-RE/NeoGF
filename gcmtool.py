@@ -12,7 +12,6 @@ __status__ = "developpement"
 DVD_MAGIC = b"\xC2\x33\x9F\x3D"
 FST_TYPE_FILE = 0
 FST_TYPE_DIR = 1
-
 BOOTBIN_LEN = 0x440
 BOOTBIN_DOLOFFSET_OFFSET = 0x420
 BOOTBIN_FSTOFFSET_OFFSET = 0x424
@@ -22,13 +21,8 @@ DOL_HEADER_LEN = 0x100
 APPLOADER_HEADER_LEN = 0x20
 ISO_APPLOADER_OFFSET = 0x2440
 ISO_APPLOADERSIZE_OFFSET = 0x2454
-######################################################################
-# Todo : add extension check ; add --disable-ignore
-# -> test it on random iso and check that it's the same than dolphin extract
-# -> test it !!!!
-# add info on unused randoms bytes on initial DVD iso file
-# -> that's why repack iso is different from initial iso
-######################################################################
+
+
 def align_offset(offset:int, align:int):
     if offset % align != 0:
         offset += align - (offset % align)
