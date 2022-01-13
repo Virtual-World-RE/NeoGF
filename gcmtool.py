@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -19,6 +19,7 @@ BOOTBIN_FSTOFFSET_OFFSET = 0x424
 BOOTBIN_FSTLEN_OFFSET = 0x428
 BI2BIN_LEN = 0x2000
 DOL_HEADER_LEN = 0x100
+APPLOADER_HEADER_LEN = 0x20
 ISO_APPLOADER_OFFSET = 0x2440
 ISO_APPLOADERSIZE_OFFSET = 0x2454
 ######################################################################
@@ -28,10 +29,10 @@ ISO_APPLOADERSIZE_OFFSET = 0x2454
 # add info on unused randoms bytes on initial DVD iso file
 # -> that's why repack iso is different from initial iso
 ######################################################################
-def align(offset:int, align:int):
+def align_offset(offset:int, align:int):
     if offset % align != 0:
         offset += align - (offset % align)
-    return align
+    return offset
 
 
 class Node:
@@ -118,7 +119,7 @@ class FstTree:
     # Needed to know where we can begin to write files
     def __get_fst_length(self):
         self.__generate_nameblock_length()
-        return align(self.__count_childs(self.__root_node)*12 + 12 + self.__nameblock_length, self.__align)
+        return align_offset(self.__count_childs(self.__root_node)*12 + 12 + self.__nameblock_length, self.__align)
     def __generate_nameblock_length(self, node:Node = None):
         if node == None:
             node = self.__root_node
@@ -160,7 +161,7 @@ class FstTree:
         else:
             node.set_offset(self.__current_file_offset)
             self.__fst_block += node.format()
-            self.__current_file_offset = align(self.__current_file_offset + node.size(), self.__align)
+            self.__current_file_offset = align_offset(self.__current_file_offset + node.size(), self.__align)
     def get_fst(self):
         self.__current_file_offset += self.__get_fst_length()
         self.__prepare()
@@ -174,11 +175,12 @@ class FstTree:
 
 
 class Dol:
+    DOLHEADER_SECTIONLENTABLE_OFFSET = 0x90
     # Get total length using the sum of the 18 sections length and dol header length
     def get_dol_len(self, dolheader_data:bytes):
         dol_len = DOL_HEADER_LEN
         for i in range(18):
-            dol_len += int.from_bytes(dolheader_data[0x90+i*4:0x90+(i+1)*4], "big", signed=False)
+            dol_len += int.from_bytes(dolheader_data[Dol.DOLHEADER_SECTIONLENTABLE_OFFSET+i*4:Dol.DOLHEADER_SECTIONLENTABLE_OFFSET+(i+1)*4], "big", signed=False)
         return dol_len
 
 
@@ -191,14 +193,11 @@ class GCM:
                 raise Exception("Invalid DVD format - this tool is for ISO/GCM files")
             bi2bin_data = iso_file.read(BI2BIN_LEN)
 
-            # https://www.gc-forever.com/wiki/index.php?title=Apploader
-            # -> Full apploader size is sum of size and trailerSize, rounded up to 32 bytes.
             iso_file.seek(ISO_APPLOADERSIZE_OFFSET)
             size = int.from_bytes(iso_file.read(4), "big", signed=False)
             trailerSize = int.from_bytes(iso_file.read(4), "big", signed=False)
             
-            # Dolphin Emulator add 32 Null bytes at the end of the extracted apploader.img
-            apploader_size = size + trailerSize + 32
+            apploader_size = APPLOADER_HEADER_LEN + size + trailerSize
             
             iso_file.seek(ISO_APPLOADER_OFFSET)
             apploaderimg_data = iso_file.read(apploader_size)
@@ -353,12 +352,12 @@ class GCM:
         root_path = folder_path / "root"
         sys_path = folder_path / "sys"
         with (sys_path / "boot.bin").open("rb+") as bootbin_file:
-            dol_offset = align(ISO_APPLOADER_OFFSET + (sys_path / "apploader.img").stat().st_size, align)
+            dol_offset = align_offset(ISO_APPLOADER_OFFSET + (sys_path / "apploader.img").stat().st_size, align)
             logging.info(f"Patching sys/boot.bin offset 0x{BOOTBIN_DOLOFFSET_OFFSET:x} with new dol offset (0x{dol_offset:x})")
             bootbin_file.seek(BOOTBIN_DOLOFFSET_OFFSET)
             bootbin_file.write(dol_offset.to_bytes(4, "big"))
             
-            fst_offset = align(dol_offset + (sys_path / "boot.dol").stat().st_size, align)
+            fst_offset = align_offset(dol_offset + (sys_path / "boot.dol").stat().st_size, align)
             logging.info(f"Patching sys/boot.bin offset 0x{BOOTBIN_FSTOFFSET_OFFSET:x} with new fst offset (0x{fst_offset:x})")
             bootbin_file.seek(BOOTBIN_FSTOFFSET_OFFSET)
             bootbin_file.write(fst_offset.to_bytes(4, "big"))
