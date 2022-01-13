@@ -9,8 +9,12 @@ __version__ = "0.0.1"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
-
-
+##################################################
+# Set roms_path with your ROMs (at the root of the ROM folder)
+# Extract all files from file system using dolphin emu - put it in dolphin_extracts/root/
+# Extract boot.dol and apploader.img using dolphin emu - put it in dolphin_extracts/sys/
+##################################################
+roms_path       = Path("../ROM")
 unpack_path     = Path("tests/unpack")
 repack_iso_path = Path("tests/repack_iso")
 unpack2_path    = Path("tests/unpack2")
@@ -79,7 +83,7 @@ if unpack2_path.is_dir():
 print("# Comparing unpacked ROMs with dolphin extracts")
 # unpack ROM in unpack
 unpack_path.mkdir(parents=True)
-for iso_path in Path("../ROM").glob("*"):
+for iso_path in roms_path.glob("*"):
     if iso_path.is_file():
         if os.system(f"python gcmtool.py -u \"{iso_path}\" \"{unpack_path}/{iso_path.name}\"") != 0:
             raise Exception("Error")
