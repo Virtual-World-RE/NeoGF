@@ -23,7 +23,7 @@ Rebuild FST and patch boot.bin for a new apploader, dol, and add/remove/edit of 
 ```
 gcmtool.py -r iso_extract
 ```
-Japanese charset is not handled for now. The original GCM iso and repack GCM iso are different must of the time. This is because GCM DVD contains "empty spaces" with data unused (old datas or random datas I don't know). So this datas are useless and loss during unpack.
+Japanese charset is not handled for now. The original GCM iso and repack GCM iso are different most of the time. This is because GCM DVD contains "empty spaces" with data unused (old datas or random datas I don't know). So this datas are useless and loss during unpack.
 
 ### Extracted file tree
 root folder contains all files of the extracted GCM iso
