@@ -404,6 +404,7 @@ class Gcm:
             logging.info(f"Patching sys/boot.bin offset 0x{BootBin.MAXFSTLEN_OFFSET:x} with new max fst size (0x{fst_size:x})")
             bootbin.set_max_fst_len(fst_size)
 
+            bootbin_file.seek(0)
             bootbin_file.write(bootbin.data())
 
 
