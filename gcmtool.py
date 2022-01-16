@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 
 
-__version__ = "0.0.8"
+__version__ = "0.0.9"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -242,25 +242,21 @@ class Gcm:
             else:
                 base_path = Path(f"{bootbin.game_code()}-{bootbin.disc_number():02}")
             
-            logging.info(f"unpacking {iso_path} in {base_path}")
+            logging.info(f"unpacking \"{iso_path}\" in \"{base_path}\"")
             sys_path = base_path / "sys"
             sys_path.mkdir(parents=True, exist_ok=True)
 
-            with (sys_path / "boot.bin").open("wb") as bootbin_file, \
-                 (sys_path / "bi2.bin" ).open("wb") as bi2bin_file, \
-                 (sys_path / "fst.bin").open("wb") as fstbin_file, \
-                 (sys_path / "apploader.img").open("wb") as apploaderimg_file,\
-                 (sys_path / "boot.dol").open("wb") as bootdol_file:
-                logging.debug(f"{iso_path}(0x0:0x{BootBin.LEN:x}) -> {sys_path / 'boot.bin'}")
-                bootbin_file.write(bootbin.data())
-                logging.debug(f"{iso_path}(0x440:0x{Gcm.APPLOADER_OFFSET:x}) -> {sys_path / 'bi2.bin'}")
-                bi2bin_file.write(bi2bin_data)
-                logging.debug(f"{iso_path}(0x{Gcm.APPLOADER_OFFSET:x}:0x{Gcm.APPLOADER_OFFSET + apploader_size:x} -> {sys_path / 'apploader.img'}")
-                apploaderimg_file.write(apploaderimg_data)
-                logging.debug(f"{iso_path}(0x{fstbin_offset:x}:0x{fstbin_offset + fstbin_len:x}) -> {sys_path / 'fst.bin'}")
-                fstbin_file.write(fstbin_data)
-                logging.debug(f"{iso_path}(0x{dol_offset:x}:0x{dol_offset + dol_len:x}) -> {sys_path / 'boot.dol'}")
-                bootdol_file.write(bootdol_data)
+            logging.debug(f"{iso_path}(0x0:0x{BootBin.LEN:x}) -> {sys_path / 'boot.bin'}")
+            (sys_path / "boot.bin").write_bytes(bootbin.data())
+            logging.debug(f"{iso_path}(0x440:0x{Gcm.APPLOADER_OFFSET:x}) -> {sys_path / 'bi2.bin'}")
+            (sys_path / "bi2.bin" ).write_bytes(bi2bin_data)
+            logging.debug(f"{iso_path}(0x{Gcm.APPLOADER_OFFSET:x}:0x{Gcm.APPLOADER_OFFSET + apploader_size:x} -> {sys_path / 'apploader.img'}")
+            (sys_path / "apploader.img").write_bytes(apploaderimg_data)
+            logging.debug(f"{iso_path}(0x{fstbin_offset:x}:0x{fstbin_offset + fstbin_len:x}) -> {sys_path / 'fst.bin'}")
+            (sys_path / "fst.bin").write_bytes(fstbin_data)
+            logging.debug(f"{iso_path}(0x{dol_offset:x}:0x{dol_offset + dol_len:x}) -> {sys_path / 'boot.dol'}")
+            (sys_path / "boot.dol").write_bytes(bootdol_data)
+
             root_path = base_path / "root"
             root_path.mkdir(exist_ok=True)
             
@@ -296,43 +292,36 @@ class Gcm:
                     fileoffset = int.from_bytes(fstbin_data[i+4:i+8], "big", signed=False)
                     filesize   = int.from_bytes(fstbin_data[i+8:i+12], "big", signed=False)
 
-                    with (currentdir_path / name).open("wb") as new_file:
-                        iso_file.seek(fileoffset)
-                        new_file.write( iso_file.read(filesize) )
+                    iso_file.seek(fileoffset)
+                    (currentdir_path / name).write_bytes( iso_file.read(filesize) )
 
-                        logging.debug(f"{iso_path}(0x{fileoffset:x}:0x{fileoffset + filesize:x}) -> {currentdir_path / name}")
+                    logging.debug(f"{iso_path}(0x{fileoffset:x}:0x{fileoffset + filesize:x}) -> {currentdir_path / name}")
     def pack(self, folder_path:Path, iso_path:Path = None):
         if iso_path == None:
             iso_path = folder_path.parent / Path(folder_path.name).with_suffix(".iso")
-        with iso_path.open("wb") as iso_file, \
-             (folder_path / "sys" / "boot.bin").open("rb") as bootbin_file, \
-             (folder_path / "sys" / "bi2.bin" ).open("rb") as bi2bin_file, \
-             (folder_path / "sys" / "fst.bin").open("rb") as fstbin_file, \
-             (folder_path / "sys" / "apploader.img").open("rb") as apploaderimg_file,\
-             (folder_path / "sys" / "boot.dol").open("rb") as bootdol_file :
-
+        with iso_path.open("wb") as iso_file:
             logging.debug(f"{folder_path / 'sys' / 'boot.bin'}      -> {iso_path}(0x0:0x{BootBin.LEN:x})")
             logging.debug(f"{folder_path / 'sys' / 'bi2.bin'}       -> {iso_path}(0x{BootBin.LEN:x}:0x{Gcm.APPLOADER_OFFSET:x})")
             logging.debug(f"{folder_path / 'sys' / 'apploader.img'} -> {iso_path}(0x{Gcm.APPLOADER_OFFSET:x}:0x{Gcm.APPLOADER_OFFSET + (folder_path / 'sys' / 'apploader.img').stat().st_size:x}")
             
-            bootbin = BootBin(bootbin_file.read())
+            bootbin = BootBin((folder_path / "sys" / "boot.bin").read_bytes())
             iso_file.write(bootbin.data())
-            iso_file.write(bi2bin_file.read())
-            iso_file.write(apploaderimg_file.read())
+            iso_file.write((folder_path / "sys" / "bi2.bin").read_bytes())
+            iso_file.write((folder_path / "sys" / "apploader.img").read_bytes())
 
             fstbin_offset = bootbin.fstbin_offset()
             fstbin_len = bootbin.fstbin_len()
             if (folder_path / "sys" / "fst.bin").stat().st_size != fstbin_len:
-                raise Exception("Invalid fst.bin size in boot.bin offset 0x{BootBin.FSTLEN_OFFSET:x}:0x{BootBin.FSTLEN_OFFSET+4:x}!")
+                raise Exception(f"Invalid fst.bin size in boot.bin offset 0x{BootBin.FSTLEN_OFFSET:x}:0x{BootBin.FSTLEN_OFFSET+4:x}!")
             logging.debug(f"{folder_path / 'sys' / 'fst.bin'}       -> {iso_path}(0x{fstbin_offset:x}:0x{fstbin_offset + fstbin_len:x})")
             iso_file.seek( fstbin_offset )
-            fstbin_data = fstbin_file.read()
+            fstbin_data = (folder_path / "sys" / "fst.bin").read_bytes()
             iso_file.write( fstbin_data )
             
             dol_offset = bootbin.dol_offset()
             logging.debug(f"{folder_path / 'sys' / 'boot.dol'}      -> {iso_path}(0x{dol_offset:x}:0x{dol_offset + (folder_path / 'sys' / 'boot.dol').stat().st_size:x})")
             iso_file.seek( dol_offset )
-            iso_file.write( bootdol_file.read() )
+            iso_file.write( (folder_path / "sys" / "boot.dol").read_bytes() )
 
             # Now parse fst.bin for writing files in the iso
             dir_id_path = {0: folder_path / "root"}
@@ -363,49 +352,47 @@ class Gcm:
                     dir_id_path[id] = currentdir_path
                     currentdir_path.mkdir(exist_ok=True)
                 else:
-                    fileoffset = int.from_bytes(fstbin_data[i+4:i+8], "big", signed=False)
-                    filesize   = int.from_bytes(fstbin_data[i+8:i+12], "big", signed=False)
+                    file_offset = int.from_bytes(fstbin_data[i+4:i+8], "big", signed=False)
+                    file_len   = int.from_bytes(fstbin_data[i+8:i+12], "big", signed=False)
 
-                    with (currentdir_path / name).open("rb") as new_file:
-                        if (currentdir_path / name).stat().st_size != filesize:
-                            raise Exception(f"Invalid file size : {currentdir_path / name} - use --rebuild-fst before packing files in the iso.")
-                        logging.debug(f"{currentdir_path / name} -> {iso_path}(0x{fileoffset:x}:0x{fileoffset + filesize:x})")
-                        iso_file.seek(fileoffset)
-                        iso_file.write( new_file.read() )
+                    if (currentdir_path / name).stat().st_size != file_len:
+                        raise Exception(f"Invalid file size : {currentdir_path / name} - use --rebuild-fst before packing files in the iso.")
+                    logging.debug(f"{currentdir_path / name} -> {iso_path}(0x{file_offset:x}:0x{file_offset + file_len:x})")
+                    iso_file.seek(file_offset)
+                    iso_file.write( (currentdir_path / name).read_bytes() )
     def rebuild_fst(self, folder_path:Path, align:int):
         root_path = folder_path / "root"
         sys_path = folder_path / "sys"
-        with (sys_path / "boot.bin").open("rb+") as bootbin_file:
-            dol_offset = align_offset(Gcm.APPLOADER_OFFSET + (sys_path / "apploader.img").stat().st_size, align)
-            logging.info(f"Patching sys/boot.bin offset 0x{BootBin.DOLOFFSET_OFFSET:x} with new dol offset (0x{dol_offset:x})")
-            bootbin = BootBin(bootbin_file.read())
-            bootbin.set_dol_offset(dol_offset)
-            
-            fst_offset = align_offset(dol_offset + (sys_path / "boot.dol").stat().st_size, align)
-            logging.info(f"Patching sys/boot.bin offset 0x{BootBin.FSTOFFSET_OFFSET:x} with new fst offset (0x{fst_offset:x})")
-            bootbin.set_fst_offset(fst_offset)
-            
-            fst_tree = FstTree(root_path, fst_offset, align=align)
 
-            # Sorting paths approach original fst sort but specials chars are after and not before chars
-            path_list = sorted([path for path in root_path.glob('**/*')], key=lambda s:Path(str(s).upper()))
-            for path in path_list:
-                fst_tree.add_node_by_path(path)
-            logging.debug(fst_tree)
+        dol_offset = align_offset(Gcm.APPLOADER_OFFSET + (sys_path / "apploader.img").stat().st_size, align)
+        logging.info(f"Patching sys/boot.bin offset 0x{BootBin.DOLOFFSET_OFFSET:x} with new dol offset (0x{dol_offset:x})")
+        bootbin = BootBin((sys_path / "boot.bin").read_bytes())
+        bootbin.set_dol_offset(dol_offset)
+        
+        fst_offset = align_offset(dol_offset + (sys_path / "boot.dol").stat().st_size, align)
+        logging.info(f"Patching sys/boot.bin offset 0x{BootBin.FSTOFFSET_OFFSET:x} with new fst offset (0x{fst_offset:x})")
+        bootbin.set_fst_offset(fst_offset)
+        
+        fst_tree = FstTree(root_path, fst_offset, align=align)
 
-            fst_path = sys_path / "fst.bin"
-            with fst_path.open("wb") as fstbin_file:
-                logging.info("Writing fst in sys/fst.bin")
-                fstbin_file.write( fst_tree.get_fst() )
+        # Sorting paths approach original fst sort, but in original fst specials chars are after and not before chars
+        path_list = sorted([path for path in root_path.glob('**/*')], key=lambda s:Path(str(s).upper()))
+        for path in path_list:
+            fst_tree.add_node_by_path(path)
+        logging.debug(fst_tree)
 
-            fst_size = fst_path.stat().st_size
-            logging.info(f"Patching sys/boot.bin offset 0x{BootBin.FSTLEN_OFFSET:x} with new fst size (0x{fst_size:x})")
-            bootbin.set_fst_len(fst_size)
-            logging.info(f"Patching sys/boot.bin offset 0x{BootBin.MAXFSTLEN_OFFSET:x} with new max fst size (0x{fst_size:x})")
-            bootbin.set_max_fst_len(fst_size)
+        fst_path = sys_path / "fst.bin"
 
-            bootbin_file.seek(0)
-            bootbin_file.write(bootbin.data())
+        logging.info("Writing fst in sys/fst.bin")
+        fst_path.write_bytes( fst_tree.get_fst() )
+
+        fst_size = fst_path.stat().st_size
+        logging.info(f"Patching sys/boot.bin offset 0x{BootBin.FSTLEN_OFFSET:x} with new fst size (0x{fst_size:x})")
+        bootbin.set_fst_len(fst_size)
+        logging.info(f"Patching sys/boot.bin offset 0x{BootBin.MAXFSTLEN_OFFSET:x} with new max fst size (0x{fst_size:x})")
+        bootbin.set_max_fst_len(fst_size)
+
+        (sys_path / "boot.bin").write_bytes(bootbin.data())
 
 
 def get_argparser():
@@ -439,7 +426,7 @@ if __name__ == '__main__':
         logging.info("### Pack in new GCM iso")
         if(p_output == Path(".")):
             p_output = Path(p_input.with_suffix(".iso"))
-        logging.info(f"packing folder {p_input} in {p_output}")
+        logging.info(f"packing folder \"{p_input}\" in \"{p_output}\"")
         gcm.pack( p_input, p_output )
     elif args.unpack:
         logging.info("### Unpack GCM iso in new folder")
