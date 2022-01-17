@@ -3,9 +3,10 @@ from datetime import datetime
 from pathlib import Path
 import logging
 import os
+import re
 import time
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -13,7 +14,8 @@ __status__ = "developpement"
 
 # http://wiki.xentax.com/index.php/GRAF:AFS_AFS
 class Afs:
-    MAGIC = b"AFS\x00"
+    MAGIC_00 = b"AFS\x00"
+    MAGIC_20 = b"AFS\x20"
     ALIGN = 0x800
     HEADER_LEN = 8
     FILENAMEBLOCK_ENTRY_LEN = 0x30
@@ -32,28 +34,28 @@ class Afs:
         self.__len = afs_path.stat().st_size
         with afs_path.open("rb") as afs_file:
             self.__tableofcontent = afs_file.read(Afs.HEADER_LEN)
-            if self.__get_magic() != Afs.MAGIC:
-                raise Exception("Invalid AFS magic number")
+            if self.__get_magic() not in [Afs.MAGIC_00, Afs.MAGIC_20]:
+                raise Exception("Invalid AFS magic number.")
             self.__file_number = int.from_bytes(self.__tableofcontent[4:8], "little")
             self.__tableofcontent += afs_file.read(self.__file_number*8)
 
             (self.__filenameblock_offset_offset, self.__filenameblock_offset) = self.__get_next_uint32(afs_file, Afs.HEADER_LEN+self.__file_number*8)
+
             afs_file.seek(self.__filenameblock_offset_offset+4)
             self.__filenameblock_len = int.from_bytes(afs_file.read(4), "little")
             
             if not self.__load_filenameblock(afs_file):
                 logging.info("There is no filename block. Creating new names and dates for files.")
             else:
-                logging.debug(f"Filenameblock offset:0x{self.__filenameblock_offset:x}, filenameblock len:0x{self.__filenameblock_len}.")
+                logging.debug(f"Filenameblock_offset:0x{self.__filenameblock_offset:x}, filenameblock_len:0x{self.__filenameblock_len:x}.")
                 afs_file.seek(len(self.__tableofcontent))
                 self.__tableofcontent += afs_file.read(self.__filenameblock_offset_offset+8 - len(self.__tableofcontent))
-                with (sys_path / "filenameblock.bin").open("wb") as filenameblock_file:
-                    logging.info("Writting sys/filenameblock.bin")
-                    filenameblock_file.write(self.__filenameblock)
-            with (sys_path / "tableofcontent.bin").open("wb") as tableofcontent_file:
-                logging.info("Writting sys/tableofcontent.bin")
-                tableofcontent_file.write(self.__tableofcontent)
-                self.__extract_files(root_path, afs_file)
+                
+                logging.info("Writting sys/filenameblock.bin")
+                (sys_path / "filenameblock.bin").write_bytes(self.__filenameblock)
+            logging.info("Writting sys/tableofcontent.bin")
+            (sys_path / "tableofcontent.bin").write_bytes(self.__tableofcontent)
+            self.__extract_files(root_path, afs_file)
     def pack(self, folder_path:Path, afs_path:Path = None):
         if afs_path == None:
             afs_path = folder_path / Path(folder_path.name).with_suffix(".afs")
@@ -67,20 +69,19 @@ class Afs:
             if (sys_path / "filenameblock.bin").is_file():
                 (self.__filenameblock_offset_offset, self.__filenameblock_offset) = self.__get_next_uint32(tableofcontent_file, Afs.HEADER_LEN+self.__file_number*8, (sys_path / "tableofcontent.bin").stat().st_size)
                 self.__filenameblock_len = int.from_bytes(self.__tableofcontent[self.__filenameblock_offset_offset+4:self.__filenameblock_offset_offset+8], "little")
-                with (sys_path / "filenameblock.bin").open("rb") as filenameblock_file:
-                    self.__filenameblock = filenameblock_file.read()
+                self.__filenameblock = (sys_path / "filenameblock.bin").read_bytes()
             for i in range(0, self.__file_number):
                 file_offset = int.from_bytes(self.__tableofcontent[Afs.HEADER_LEN+i*8:Afs.HEADER_LEN+i*8+4], "little")
                 file_len    = int.from_bytes(self.__tableofcontent[Afs.HEADER_LEN+i*8+4:Afs.HEADER_LEN+i*8+8], "little")
                 if self.__filenameblock != None :
                     filename = self.__filenameblock[i*Afs.FILENAMEBLOCK_ENTRY_LEN:i*Afs.FILENAMEBLOCK_ENTRY_LEN+32].split(b"\x00")[0].decode("utf-8")
                 else:
-                    filename = f"unknown_{i}.bin"
-                with (root_path / filename).open("rb") as new_file:
-                    logging.debug(f"Packing {root_path/filename} 0x{file_offset:x}:0x{file_offset+file_len:x} in iso.")
-                    afs_file.seek(file_offset)
-                    afs_file.write(self.__pad(new_file.read()))
-            afs_file.write(self.__pad(self.__filenameblock))
+                    filename = f"{i:08}"
+                logging.debug(f"Packing {root_path/filename} 0x{file_offset:x}:0x{file_offset+file_len:x} in iso.")
+                afs_file.seek(file_offset)
+                afs_file.write(self.__pad((root_path / filename).read_bytes()))
+            if self.__filenameblock != None:
+                afs_file.write(self.__pad(self.__filenameblock))
     def rebuild(self, folder_path:Path):
         raise Exception("Not implemented yet")
     def list(self, path:Path):
@@ -108,26 +109,25 @@ class Afs:
                 second      = int.from_bytes(self.__filenameblock[i*Afs.FILENAMEBLOCK_ENTRY_LEN+42:i*Afs.FILENAMEBLOCK_ENTRY_LEN+44], "little")
                 mtime = time.mktime(datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second).timetuple())
             else:
-                filename = f"unknown_{i}.bin"
-            with (root_path / filename).open("wb") as new_file:
-                logging.debug(f"Writting {root_path/filename} 0x{file_offset:x}:0x{file_offset+file_len:x}")
-                afs_file.seek(file_offset)
-                new_file.write(afs_file.read(file_len))
+                filename = f"{i:08}"
+
+            logging.debug(f"Writting {root_path/filename} 0x{file_offset:x}:0x{file_offset+file_len:x}")
+            afs_file.seek(file_offset)
+            (root_path / filename).write_bytes(afs_file.read(file_len))
             if self.__filenameblock != None :
                 os.utime(root_path/filename, (mtime, mtime))
     def __load_filenameblock(self, afs_file):
-        if self.__filenameblock_offset + self.__filenameblock_len > self.__len or self.__filenameblock_offset < self.__filenameblock_offset_offset:
+        if self.__filenameblock_offset + self.__filenameblock_len > self.__len or \
+           self.__filenameblock_offset < self.__filenameblock_offset_offset or \
+           (len(self.__tableofcontent) - self.HEADER_LEN) / 8 != self.__filenameblock_len / Afs.FILENAMEBLOCK_ENTRY_LEN:
             self.__clean_filenameblock()
             return False
         afs_file.seek(self.__filenameblock_offset)
         self.__filenameblock = afs_file.read(self.__filenameblock_len)
 
-        if (len(self.__tableofcontent) - self.HEADER_LEN) / 8 != self.__filenameblock_len / Afs.FILENAMEBLOCK_ENTRY_LEN:
-            self.__clean_filenameblock()
-            return False
-
-        for i in range(0, len(self.__tableofcontent)):
-            if self.__tableofcontent[Afs.HEADER_LEN+i*8+4:Afs.HEADER_LEN+i*8+8] != self.__filenameblock[i*Afs.FILENAMEBLOCK_ENTRY_LEN+44:i*Afs.FILENAMEBLOCK_ENTRY_LEN+48]:
+        pattern = re.compile(b"^(?=.{32}$)[^\x00]+\x00+$")
+        for i in range(0, self.__file_number):
+            if not pattern.fullmatch(self.__filenameblock[i*Afs.FILENAMEBLOCK_ENTRY_LEN:i*Afs.FILENAMEBLOCK_ENTRY_LEN+32]):
                 self.__clean_filenameblock()
                 return False
         return True
@@ -143,9 +143,9 @@ class Afs:
             file_len = self.__len
         file.seek(offset)
         next_uint32 = int.from_bytes(file.read(4), "little")
-        offset += 4
         if next_uint32 != 0:
             return (offset, next_uint32)
+        offset += 4
         # If filename_block_offset is not directly after the files offsets and lens
         # --> we search the next uint32 != 0
         while offset < file_len:
@@ -174,10 +174,10 @@ def get_argparser():
     parser.add_argument('output_path', metavar='OUTPUT', help='', nargs='?', default="")
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-p', '--pack',   action='store_true', help="-p source_folder (dest_file.afs) : Pack source_folder in new file source_folder.afs or dest_file.afs if specified")
-    group.add_argument('-u', '--unpack', action='store_true', help="-u source_afs.afs (dest_folder) : Unpack the AFS in new folder source_afs or dest_folder if specified")
-    group.add_argument('-l', '--list',   action='store_true', help="-l source_afs.afs or source_folder : List AFS files, length and offsets")
-    group.add_argument('-r', '--rebuild', help="-r source_folder fndo_offset : Rebuild AFS tableofcontent and filenamedirectory using fndo_offset as filenamedirectory_offset_offset (the offset in the TOC)")
+    group.add_argument('-p', '--pack',   action='store_true', help="-p source_folder (dest_file.afs) : Pack source_folder in new file source_folder.afs or dest_file.afs if specified.")
+    group.add_argument('-u', '--unpack', action='store_true', help="-u source_afs.afs (dest_folder) : Unpack the AFS in new folder source_afs or dest_folder if specified.")
+    group.add_argument('-l', '--list',   action='store_true', help="-l source_afs.afs or source_folder : List AFS files, length and offsets.")
+    group.add_argument('-r', '--rebuild', help="-r source_folder fndo_offset : Rebuild AFS tableofcontent (TOC) and filenamedirectory (FND) using filenamedirectory_offset_offset=fndo_offset (the offset in the TOC).")
     return parser
 
 
