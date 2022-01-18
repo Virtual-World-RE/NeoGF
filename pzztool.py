@@ -4,7 +4,8 @@ from pathlib import Path
 import shutil
 import logging
 
-__version__ = "0.14.7"
+
+__version__ = "0.14.8"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
@@ -30,30 +31,54 @@ def get_file_path(file_data: bytes, path: Path):
     # 001 is always absent for dpxxxx
     if path.name[5:7] == "pl" or path.name[5:7] == "dp":
         if path.name[0:3] == "000":
-            return path.with_name(path.name + "data").with_suffix(".bin")
+            if path.stem[-4:] != "data":
+                return path.with_name(path.name + "data").with_suffix(".bin")
+            return path.with_suffix(".bin")
         if path.name[0:3] == "002":
-            return path.with_name(path.name + "hit").with_suffix(".bin")
+            if path.stem[-3:] != "hit":
+                return path.with_name(path.name + "hit").with_suffix(".bin")
+            return path.with_suffix(".bin")
         if path.name[0:3] == "003":
-            return path.with_name(path.name + "mot").with_suffix(".bin")
+            if path.stem[-3:] != "mot":
+                return path.with_name(path.name + "mot").with_suffix(".bin")
+            return path.with_suffix(".bin")
         if path.name[0:3] == "004":
-            return path.with_name(path.name + "_mdl").with_suffix(".arc")
+            if path.stem[-4:] != "_mdl" :
+                return path.with_name(path.name + "_mdl").with_suffix(".arc")
+            return path.with_suffix(".arc")
         if path.name[0:3] == "005":
-            return path.with_name(path.name + "b_mdl").with_suffix(".arc")
+            if path.stem[-5:] != "b_mdl":
+                return path.with_name(path.name + "b_mdl").with_suffix(".arc")
+            return path.with_suffix(".arc")
         if path.name[0:3] == "006":
-            return path.with_name(path.name + "g_mdl").with_suffix(".arc")
+            if path.stem[-5:] != "g_mdl":
+                return path.with_name(path.name + "g_mdl").with_suffix(".arc")
+            return path.with_suffix(".arc")
         if path.name[0:3] == "007":
-            return path.with_name(path.name + "s_mdl").with_suffix(".arc")
+            if path.stem[-5:] != "s_mdl":
+                return path.with_name(path.name + "s_mdl").with_suffix(".arc")
+            return path.with_suffix(".arc")
         if path.name[0:3] == "008":
-            return path.with_name(path.name + "c_mdl").with_suffix(".arc")
+            if path.stem[-5:] != "c_mdl":
+                return path.with_name(path.name + "c_mdl").with_suffix(".arc")
+            return path.with_suffix(".arc")
         if path.name[0:3] == "009":
-            return path.with_name(path.name + "k_mdl").with_suffix(".arc")
+            if path.stem[-5:] != "k_mdl":
+                return path.with_name(path.name + "k_mdl").with_suffix(".arc")
+            return path.with_suffix(".arc")
     elif path.name[5:9] == "efct":
         if path.name[0:3] == "001":
-            return path.with_name(path.name + "00_mdl").with_suffix(".arc")
+            if path.stem[-6:] != "00_mdl":
+                return path.with_name(path.name + "00_mdl").with_suffix(".arc")
+            return path.with_suffix(".arc")
         if path.name[0:3] == "002":
-            return path.with_name(path.name + "01_mdl").with_suffix(".arc")
+            if path.stem[-6:] != "01_mdl":
+                return path.with_name(path.name + "01_mdl").with_suffix(".arc")
+            return path.with_suffix(".arc")
     elif file_data.startswith(ICON_MAGIC_NUMBER):
-        return path.with_name(path.name + "icon").with_suffix(".bin")
+        if path.stem[-4:] != "icon":
+            return path.with_name(path.name + "icon").with_suffix(".bin")
+        return path.with_suffix(".bin")
     if file_data.startswith(TPL_MAGIC_NUMBER):
         return path.with_suffix(".tpl")
     if file_data.startswith(CHD_MAGIC_NUMBER):
@@ -312,7 +337,7 @@ def pzz_pack(folder_path:Path, pzz_path:Path, auto_compress:bool = False):
                 file_data = pzz_decompress(file_data) # pad is not handled yet
 
             """
-            # on ajoute le padding pour correspondre à un multiple de BLOCK_SIZE
+            # we add pad to be aligned to BLOCK_SIZE
             if compression_status == 'U':
                 if (len(file_data) % BLOCK_SIZE) > 0:
                     file_data.extend(b"\x00" * (BLOCK_SIZE - (len(file_data) % BLOCK_SIZE)))
@@ -391,32 +416,31 @@ if __name__ == '__main__':
             p_output.write_bytes(pzz_compress(p_input.read_bytes()))
     elif args.decompress:
         logging.info("### Decompress")
-        if p_output == Path("."):
-            p_output = p_input.parent / p_input.stem
 
         # Extension check
         if not args.disable_ignore and p_input.suffix != ".pzzp":
             logging.warning(f"Ignored - {p_input} - bad extension - must be a pzzp")
         else:
             output_file_data = pzz_decompress(p_input.read_bytes())
-            p_output = get_file_path(output_file_data, p_output)
+            if p_output == Path("."):
+                p_output = get_file_path(output_file_data, p_input.parent / p_input.stem)
             logging.info(f"Decompressing {p_input} in {p_output}")
             p_output.write_bytes(fix_pad_decompress(output_file_data, p_output))
     elif args.batch_compress:
         logging.info("### Batch Compress")
         if(p_output == Path(".")):
-            p_output = Path(p_input)
+            p_output = p_input
         p_output.mkdir(exist_ok=True)
 
-        for file_path in p_input.glob("*"):
+        for pzzfile_path in p_input.glob("*"):
             # Extension check
-            if not args.disable_ignore and file_path.suffix == ".pzzp":
-                logging.warning(f"Ignored - {file_path} - bad extension - musn't be a pzzp")
+            if not args.disable_ignore and pzzfile_path.suffix == ".pzzp":
+                logging.warning(f"Ignored - {pzzfile_path} - bad extension - musn't be a pzzp")
                 if p_input != p_output:
-                    shutil.copy(file_path, p_output/file_path.name)
+                    shutil.copy(pzzfile_path, p_output / pzzfile_path.name)
                 continue
-            logging.info(f"Compressing {file_path}")
-            (p_output/file_path.stem).with_suffix(".pzzp").write_bytes(pzz_compress(file_path.read_bytes()))
+            logging.info(f"Compressing {pzzfile_path} in {p_output / pzzfile_path.stem}.pzzp")
+            (p_output/pzzfile_path.stem).with_suffix(".pzzp").write_bytes(pzz_compress(pzzfile_path.read_bytes()))
     elif args.batch_decompress:
         logging.info("### Batch Decompress")
         if(p_output == Path(".")):
@@ -429,7 +453,7 @@ if __name__ == '__main__':
                 if p_input != p_output:
                     shutil.copy(file_path, p_output / file_path.name)
                 continue
-            logging.info(f"Decompressing {file_path}")
+            logging.info(f"Decompressing {file_path} in {p_output / file_path.stem}?.?")
             uncompressed_content = pzz_decompress(file_path.read_bytes())
             uncompressed_path = get_file_path(uncompressed_content, p_output / file_path.name)
             uncompressed_path.write_bytes(fix_pad_decompress(uncompressed_content, uncompressed_path))
