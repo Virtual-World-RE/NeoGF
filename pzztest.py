@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import hashlib
 import os
@@ -6,11 +7,16 @@ import pzztool
 import shutil
 
 
-TPL_MAGIC_NUMBER = b"\x00\x20\xAF\x30" # http://virtualre.rf.gd/index.php/TPL_(Format_de_fichier)
+__version__ = "0.0.1"
+__author__ = "rigodron, algoflash, GGLinnk"
+__license__ = "MIT"
+__status__ = "developpement"
+
 
 unpack_path = Path("unpack")
 repack_path = Path("repack")
-afsdump_path = Path("afs_data/root")
+# afsdump_path = Path("afs_data/root")
+
 
 # compare all files sha256 from folder1 and folder2
 #     -> print the filename if there is a difference
@@ -21,12 +27,6 @@ def verify_sha256(folder1: Path, folder2: Path):
             print(f"ERROR - INVALID FILE : {pzz_file_name}")
             invalid_files_count +=1
     print(f"Invalid files : {invalid_files_count}/{len(list(folder1.glob('*')))}")
-
-
-# compare sha256 of two files
-#     -> print the filename if there is a difference
-def verify_sha256_2(file1: Path, file2: Path):
-    return hashlib.sha256( file1.read_bytes() ).hexdigest() == hashlib.sha256( file2.read_bytes() ).hexdigest()
 
 
 def get_argparser():
@@ -48,12 +48,10 @@ def get_argparser():
             unpack_path : will be created with all unpzz pzz from pzz folder
             repack_path : will be created with all pzz(pzz_folder) from unpack_path folder
         print file_name when sha256 is different between source_pzz_folder and repack_path folder""")
-    group.add_argument('-tctplh', '--test-check-tpl-headers',   action='store_true', help="-tctplh afs_data_folder : check all files headers in the afs_data and print those who have the tpl magicfile")
     group.add_argument('-tcd', '--test-check-decompress',       action='store_true', help="""
         pzz : put all pzz in this folder
         then tip "pzztool.py -tcd pzz"
         The script will then check that tpls are correctly decompressed with their specific characteristics""")
-    group.add_argument('-tcp', '--test-compare-position',   action='store_true', help="compare plxxxx.pzz subfiles with plxxxx files inside afs_data.afs")
     return parser
 
 
@@ -64,12 +62,10 @@ if __name__ == '__main__':
 
     if args.test_decompress_compress:
         print("# TEST : DECOMPRESS COMPRESS")
-        listofinvalid = []
 
         for pzzp_path in p_input.glob('*'):
             original_bytes = pzzp_path.read_bytes()
-            decomp_bytes = pzztool.pzz_decompress(original_bytes)
-            recomp_bytes = pzztool.pzz_compress(decomp_bytes)
+            recomp_bytes = pzztool.pzz_compress(pzztool.pzz_decompress(original_bytes))
 
             original_digest = hashlib.sha256(original_bytes).hexdigest()
             recomp_digest = hashlib.sha256(recomp_bytes).hexdigest()
@@ -137,29 +133,3 @@ if __name__ == '__main__':
                     print(f"Invalid TPL file length modulo 32 ({tpl_path.stat().st_size % 32}) - {tpl_path}")
                     invalid_files_count += 1
         print(f"Invalid files : {invalid_files_count}/{total}")
-    elif args.test_compare_position:
-        # FULL_AFS_FILE_DUMP contains all unpacked files from afs_data.afs
-        # unpack_path contains result of pzztool.py -bunpzz on all pzz files
-        # What you have to compare (prove that files of borgs (plxxxx.pzz) are positional and same as pl files in the root of afs_data) :
-        # pzztest.py -tcp 0 data.bin
-        #     Some afs_data files are named data2 or data3 and it's sometime absent
-        # pzztest.py -tcp 2 hit.bin
-        # pzztest.py -tcp 3 mot.bin
-        # pzztest.py -tcp 4 _mdl.arc
-        # pzztest.py -tcp 5 b_mdl.arc
-        # pzztest.py -tcp 6 g_mdl.arc
-        # pzztest.py -tcp 7 s_mdl.arc
-        # pzztest.py -tcp 8 c_mdl.arc
-        # pzztest.py -tcp 9 k_mdl.arc
-
-        for pzzpart_path in unpack_path.glob(f"**/00{p_input}*"):
-            file_path = afsdump_path / pzzpart_path.parent.name / p_output
-
-            if pzzpart_path.parent.name[:2] == "pl":
-                if not file_path.is_file():
-                    print(f"File doesn't exist : {file_path}")
-                elif pzzpart_path.stat().st_size == 0:
-                    print(f"File is empty : {pzzpart_path}")
-                else:
-                    if not verify_sha256_2(pzzpart_path, file_path):
-                        print(f"DIFFERENCE : {pzzpart_path} - {file_path}")
