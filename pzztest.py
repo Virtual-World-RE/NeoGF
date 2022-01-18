@@ -35,7 +35,7 @@ def verify_sha256(folder1: Path, folder2: Path):
 
 start = time.time()
 print("###############################################################################")
-print("# Checking tests folder")
+print("# Checking tests folder -> tests take 3 hour 35 minutes")
 print("###############################################################################")
 # Check if tests folders exist
 if unpack_path.is_dir() or repack_path.is_dir() or compress_path.is_dir() or pzzfolder_path.is_dir() or batchdecompress_path.is_dir() or batchcompress_path.is_dir():
