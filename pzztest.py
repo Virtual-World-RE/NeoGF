@@ -6,18 +6,23 @@ import shutil
 import time
 
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
 
+##################################################
+# Set afsdump_path with your dumped afs_data.afs
+##################################################
+afsdump_path = Path("afs_data/root")
+
+# Created tmp paths
 pzzfolder_path = Path("pzz")
 unpack_path = Path("unpack")
 repack_path = Path("repack")
 compress_path = Path("compress")
 batchcompress_path = Path("batch_compress")
 batchdecompress_path = Path("batch_decompress")
-afsdump_path = Path("afs_data/root")
 
 
 # compare two files sha256
@@ -27,10 +32,13 @@ def compare_sha256(file1_path:Path, file2_path:Path):
 # compare all files sha256 from folder1 and folder2
 #     -> raise an exception if there is a difference
 def verify_sha256(folder1: Path, folder2: Path):
-    print(f"compare \"{folder1}\" - \"{folder2}\"")
+    folder1_file_count = len(list(folder1.glob("*")))
+    print(f"compare \"{folder1}\" - \"{folder2}\" ({folder1_file_count} files)")
+    if folder1_file_count == 0:
+        raise Exception(f"ERROR - EMPTY FOLDER: {folder1}")
     for file_path in folder1.glob("*"):
         if hashlib.sha256( file_path.read_bytes() ).hexdigest() != hashlib.sha256( (folder2 / file_path.name).read_bytes() ).hexdigest() :
-            raise Exception(f"ERROR - INVALID FILE : {folder2 / file_path.name}")
+            raise Exception(f"ERROR - INVALID FILE: {folder2 / file_path.name}")
 
 
 start = time.time()
@@ -111,6 +119,8 @@ shutil.rmtree(batchdecompress_path)
 
 for folder_path in compress_path.glob("*"):
     verify_sha256(compress_path / folder_path.name, batchcompress_path / folder_path.name)
+
+shutil.rmtree(compress_path)
 shutil.rmtree(batchcompress_path)
 
 print("###############################################################################")
