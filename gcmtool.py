@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 
 
-__version__ = "0.0.9"
+__version__ = "0.0.10"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -215,6 +215,7 @@ class Gcm:
             bootbin = BootBin(iso_file.read(BootBin.LEN))
             if bootbin.dvd_magic() != Gcm.DVD_MAGIC:
                 raise Exception("Invalid DVD format - this tool is for ISO/GCM files")
+
             bi2bin_data = iso_file.read(Gcm.BI2BIN_LEN)
 
             iso_file.seek(Gcm.APPLOADERSIZE_OFFSET)
@@ -237,14 +238,15 @@ class Gcm:
             dolheader_data = iso_file.read(Dol.HEADER_LEN)
             dol_len = dol.get_dol_len( dolheader_data )
             bootdol_data = dolheader_data + iso_file.read( dol_len - Dol.HEADER_LEN )
-            if folder_path != Path("."):
-                base_path = folder_path
-            else:
-                base_path = Path(f"{bootbin.game_code()}-{bootbin.disc_number():02}")
+
+            if folder_path == Path("."):
+                folder_path = Path(f"{bootbin.game_code()}-{bootbin.disc_number():02}")
+            if folder_path.is_dir():
+                raise Exception(f"Error - \"{folder_path}\" already exist. Remove this folder or use another name for the unpack folder.")
             
-            logging.info(f"unpacking \"{iso_path}\" in \"{base_path}\"")
-            sys_path = base_path / "sys"
-            sys_path.mkdir(parents=True, exist_ok=True)
+            logging.info(f"unpacking \"{iso_path}\" in \"{folder_path}\"")
+            sys_path = folder_path / "sys"
+            sys_path.mkdir(parents=True)
 
             logging.debug(f"{iso_path}(0x0:0x{BootBin.LEN:x}) -> {sys_path / 'boot.bin'}")
             (sys_path / "boot.bin").write_bytes(bootbin.data())
@@ -257,8 +259,8 @@ class Gcm:
             logging.debug(f"{iso_path}(0x{dol_offset:x}:0x{dol_offset + dol_len:x}) -> {sys_path / 'boot.dol'}")
             (sys_path / "boot.dol").write_bytes(bootdol_data)
 
-            root_path = base_path / "root"
-            root_path.mkdir(exist_ok=True)
+            root_path = folder_path / "root"
+            root_path.mkdir()
             
             # And now we parse FST data to unpack all files in the GCM iso file
             dir_id_path = {0: root_path}
@@ -299,29 +301,33 @@ class Gcm:
     def pack(self, folder_path:Path, iso_path:Path = None):
         if iso_path == None:
             iso_path = folder_path.parent / Path(folder_path.name).with_suffix(".iso")
+        if iso_path.is_file():
+            raise Exception(f"Error - {iso_path} already exist. Remove this file or use another GCM file name.")
+
         with iso_path.open("wb") as iso_file:
-            logging.debug(f"{folder_path / 'sys' / 'boot.bin'}      -> {iso_path}(0x0:0x{BootBin.LEN:x})")
-            logging.debug(f"{folder_path / 'sys' / 'bi2.bin'}       -> {iso_path}(0x{BootBin.LEN:x}:0x{Gcm.APPLOADER_OFFSET:x})")
-            logging.debug(f"{folder_path / 'sys' / 'apploader.img'} -> {iso_path}(0x{Gcm.APPLOADER_OFFSET:x}:0x{Gcm.APPLOADER_OFFSET + (folder_path / 'sys' / 'apploader.img').stat().st_size:x}")
+            sys_path = folder_path / "sys"
+            logging.debug(f"{sys_path / 'boot.bin'}      -> {iso_path}(0x0:0x{BootBin.LEN:x})")
+            logging.debug(f"{sys_path / 'bi2.bin'}       -> {iso_path}(0x{BootBin.LEN:x}:0x{Gcm.APPLOADER_OFFSET:x})")
+            logging.debug(f"{sys_path / 'apploader.img'} -> {iso_path}(0x{Gcm.APPLOADER_OFFSET:x}:0x{Gcm.APPLOADER_OFFSET + (sys_path / 'apploader.img').stat().st_size:x}")
             
-            bootbin = BootBin((folder_path / "sys" / "boot.bin").read_bytes())
+            bootbin = BootBin((sys_path / "boot.bin").read_bytes())
             iso_file.write(bootbin.data())
-            iso_file.write((folder_path / "sys" / "bi2.bin").read_bytes())
-            iso_file.write((folder_path / "sys" / "apploader.img").read_bytes())
+            iso_file.write((sys_path / "bi2.bin").read_bytes())
+            iso_file.write((sys_path / "apploader.img").read_bytes())
 
             fstbin_offset = bootbin.fstbin_offset()
             fstbin_len = bootbin.fstbin_len()
-            if (folder_path / "sys" / "fst.bin").stat().st_size != fstbin_len:
+            if (sys_path / "fst.bin").stat().st_size != fstbin_len:
                 raise Exception(f"Invalid fst.bin size in boot.bin offset 0x{BootBin.FSTLEN_OFFSET:x}:0x{BootBin.FSTLEN_OFFSET+4:x}!")
-            logging.debug(f"{folder_path / 'sys' / 'fst.bin'}       -> {iso_path}(0x{fstbin_offset:x}:0x{fstbin_offset + fstbin_len:x})")
+            logging.debug(f"{sys_path / 'fst.bin'}       -> {iso_path}(0x{fstbin_offset:x}:0x{fstbin_offset + fstbin_len:x})")
             iso_file.seek( fstbin_offset )
-            fstbin_data = (folder_path / "sys" / "fst.bin").read_bytes()
+            fstbin_data = (sys_path / "fst.bin").read_bytes()
             iso_file.write( fstbin_data )
             
             dol_offset = bootbin.dol_offset()
-            logging.debug(f"{folder_path / 'sys' / 'boot.dol'}      -> {iso_path}(0x{dol_offset:x}:0x{dol_offset + (folder_path / 'sys' / 'boot.dol').stat().st_size:x})")
+            logging.debug(f"{sys_path / 'boot.dol'}      -> {iso_path}(0x{dol_offset:x}:0x{dol_offset + (sys_path / 'boot.dol').stat().st_size:x})")
             iso_file.seek( dol_offset )
-            iso_file.write( (folder_path / "sys" / "boot.dol").read_bytes() )
+            iso_file.write( (sys_path / "boot.dol").read_bytes() )
 
             # Now parse fst.bin for writing files in the iso
             dir_id_path = {0: folder_path / "root"}
@@ -333,6 +339,10 @@ class Gcm:
             base_names = nextdir * 12
             # go to parent when id reach next dir
             nextdir_arr = [ nextdir ]
+
+            # Check if there is new / removed files or dirs in the root folder
+            if nextdir - 1 != len(list(currentdir_path.glob("**/*"))):
+                raise Exception(f"Error - Invalid file count inside {currentdir_path}. Use --rebuild-fst to update the FST before packing.")
 
             for id in range(1, base_names // 12):
                 i = id * 12
@@ -400,7 +410,7 @@ def get_argparser():
     parser = argparse.ArgumentParser(description='ISO/GCM packer & unpacker - [GameCube] v' + __version__)
     parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
-    parser.add_argument('-a', '--align', type=int, help='alignment of files in the GCM ISO 4 32000', default=4)
+    parser.add_argument('-a', '--align', type=int, help='-a=10: alignment of files in the GCM ISO (default value is 4)', default=4)
     parser.add_argument('input_path',  metavar='INPUT', help='')
     parser.add_argument('output_path', metavar='OUTPUT', help='', nargs='?', default="")
 
