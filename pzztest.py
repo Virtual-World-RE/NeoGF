@@ -7,7 +7,7 @@ import pzztool
 import shutil
 
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -56,6 +56,9 @@ def get_argparser():
 
 
 if __name__ == '__main__':
+
+    if unpack_path.is_dir() or repack_path.is_dir():
+        raise Exception(f"Error - Please remove:\n-{unpack_path}\n{repack_path}")
     args = get_argparser().parse_args()
 
     p_input = Path(args.input_path)
