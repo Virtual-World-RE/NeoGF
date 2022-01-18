@@ -1,138 +1,168 @@
 #!/usr/bin/env python3
-import argparse
 import hashlib
 import os
 from pathlib import Path
-import pzztool
 import shutil
+import time
 
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
 
-
+pzzfolder_path = Path("pzz")
 unpack_path = Path("unpack")
 repack_path = Path("repack")
-# afsdump_path = Path("afs_data/root")
+compress_path = Path("compress")
+batchcompress_path = Path("batch_compress")
+batchdecompress_path = Path("batch_decompress")
+afsdump_path = Path("afs_data/root")
 
+
+# compare two files sha256
+def compare_sha256(file1_path:Path, file2_path:Path):
+    return hashlib.sha256( file1_path.read_bytes() ).hexdigest() == hashlib.sha256( file2_path.read_bytes() ).hexdigest()
 
 # compare all files sha256 from folder1 and folder2
-#     -> print the filename if there is a difference
+#     -> raise an exception if there is a difference
 def verify_sha256(folder1: Path, folder2: Path):
-    invalid_files_count = 0
-    for pzz_path in folder1.glob("*.pzz"):
-        if hashlib.sha256( pzz_path.read_bytes() ).hexdigest() != hashlib.sha256( (folder2 / pzz_path.name).read_bytes() ).hexdigest() :
-            print(f"ERROR - INVALID FILE : {pzz_file_name}")
-            invalid_files_count +=1
-    print(f"Invalid files : {invalid_files_count}/{len(list(folder1.glob('*')))}")
+    print(f"compare \"{folder1}\" - \"{folder2}\"")
+    for file_path in folder1.glob("*"):
+        if hashlib.sha256( file_path.read_bytes() ).hexdigest() != hashlib.sha256( (folder2 / file_path.name).read_bytes() ).hexdigest() :
+            raise Exception(f"ERROR - INVALID FILE : {folder2 / file_path.name}")
 
 
-def get_argparser():
-    parser = argparse.ArgumentParser(description='TEST TOOL')
-    parser.add_argument('input_path',  metavar='INPUT',  help='')
-    parser.add_argument('output_path', metavar='OUTPUT', help='', nargs='?', default="")
+start = time.time()
+print("###############################################################################")
+print("# Checking tests folder")
+print("###############################################################################")
+# Check if tests folders exist
+if unpack_path.is_dir() or repack_path.is_dir() or compress_path.is_dir() or pzzfolder_path.is_dir() or batchdecompress_path.is_dir() or batchcompress_path.is_dir():
+    raise Exception(f"Error - Please remove:\n-{unpack_path}\n-{repack_path}\n-{compress_path}\n-{pzzfolder_path}\n-{batchdecompress_path}\n-{batchcompress_path}")
 
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-tdc',  '--test-decompress-compress',   action='store_true', help="")
-    group.add_argument('-tbup', '--test-batch-unpack-pack',     action='store_true', help="""
-        -tbup source_pzz_folder
-            source_pzz_folder  : put all pzz in this folder
-            unpack_path : will be created with all unpacked pzz from pzz folder
-            repack_path : will be created with all packed pzz from unpack_path folder
-        print file_name when sha256 is different between source_pzz_folder and repack_path folder""")
-    group.add_argument('-tbunpzzpzz', '--test-batch-unpzz-pzz', action='store_true', help="""
-        -tbunpzzpzz source_pzz_folder
-            source_pzz_folder  : put all pzz in this folder
-            unpack_path : will be created with all unpzz pzz from pzz folder
-            repack_path : will be created with all pzz(pzz_folder) from unpack_path folder
-        print file_name when sha256 is different between source_pzz_folder and repack_path folder""")
-    group.add_argument('-tcd', '--test-check-decompress',       action='store_true', help="""
-        pzz : put all pzz in this folder
-        then tip "pzztool.py -tcd pzz"
-        The script will then check that tpls are correctly decompressed with their specific characteristics""")
-    return parser
+print("###############################################################################")
+print("# TEST 1/5")
+print("# Comparing [original pzz]->unpacked->repacked->[repack_path]")
+print("###############################################################################")
+pzzfolder_path.mkdir()
+unpack_path.mkdir()
+repack_path.mkdir()
 
+for pzz_path in afsdump_path.glob("*.pzz"):
+    shutil.copy(pzz_path, pzzfolder_path / pzz_path.name)
 
-if __name__ == '__main__':
+if os.system(f"python pzztool.py -bu \"{pzzfolder_path}\" \"{unpack_path}\"") != 0:
+    raise Exception("Error while batch unpack.")
+if os.system(f"python pzztool.py -bp \"{unpack_path}\" \"{repack_path}\"") != 0:
+    raise Exception("Error while batch pack.")
 
-    if unpack_path.is_dir() or repack_path.is_dir():
-        raise Exception(f"Error - Please remove:\n-{unpack_path}\n{repack_path}")
-    args = get_argparser().parse_args()
+for pzz_path in pzzfolder_path.glob("*"):
+    print(f"compare \"{pzz_path}\" - \"{repack_path / pzz_path.name}\"")
+    if not compare_sha256(pzz_path, repack_path / pzz_path.name):
+        raise Exception(f"INVALID FILE: {repack_path / pzz_path.name}")
 
-    p_input = Path(args.input_path)
+shutil.rmtree(repack_path)
 
-    if args.test_decompress_compress:
-        print("# TEST : DECOMPRESS COMPRESS")
+print("###############################################################################")
+print("# TEST 2/5")
+print("# Comparing unpack_path/[*.pzzp]->decompress->compress_path/[*.pzzp] PZZ part")
+print("###############################################################################")
+compress_path.mkdir()
 
-        for pzzp_path in p_input.glob('*'):
-            original_bytes = pzzp_path.read_bytes()
-            recomp_bytes = pzztool.pzz_compress(pzztool.pzz_decompress(original_bytes))
+for folder_path in unpack_path.glob("*"):
+    (compress_path / folder_path.name).mkdir()
 
-            original_digest = hashlib.sha256(original_bytes).hexdigest()
-            recomp_digest = hashlib.sha256(recomp_bytes).hexdigest()
+for pzzp_path in unpack_path.glob("*/*.pzzp"):
+    if os.system(f"python pzztool.py -d \"{pzzp_path}\" \"{compress_path / pzzp_path.parent.name / Path(pzzp_path.stem).with_suffix('.dat')}\"") != 0:
+        raise Exception("Error while decompress.")
 
-            if original_digest != recomp_digest:
-                print(f"Invalid sha256 for {pzzp_path} : ({original_digest}) ({recomp_digest})")
-    elif args.test_batch_unpack_pack:
-        print("# TEST : BATCH UNPACK PACK")
-        # Remove unpack_path and repack_path
-        if unpack_path.is_dir():
-            shutil.rmtree(unpack_path)
-        if repack_path.is_dir():
-            shutil.rmtree(repack_path)
+for file_path in compress_path.glob('*/*'):
+    if os.system(f"python pzztool.py -c \"{file_path}\"") != 0:
+        raise Exception("Error while compress.")
+    file_path.unlink()
 
-        if os.system(f"python pzztool.py -bu {p_input} {unpack_path}") != 0:
-            raise Exception("Error while batch unpack.")
-        if os.system(f"python pzztool.py -bp {unpack_path} {repack_path}") != 0:
-            raise Exception("Error while batch pack.")
-        verify_sha256(p_input, repack_path)
-    elif args.test_batch_unpzz_pzz:
-        # Remove unpack_path and repack_path
-        if unpack_path.is_dir():
-            shutil.rmtree(unpack_path)
-        if repack_path.is_dir():
-            shutil.rmtree(repack_path)
+for pzzp_path in unpack_path.glob("*/*.pzzp"):
+    file_path = compress_path / pzzp_path.parent.name / pzzp_path.name
+    print(f"compare \"{pzzp_path}\" - \"{file_path}\"")
+    if not compare_sha256(pzzp_path, file_path):
+        raise Exception(f"INVALID FILE: {file_path}")
 
-        if os.system(f"python pzztool.py -bunpzz {p_input} {unpack_path}") != 0:
-            raise Exception("Error while batch unpzz.")
-        if os.system(f"python pzztool.py -bpzz {unpack_path} {repack_path}") != 0:
-            raise Exception("Error while batch pzz.")
-        verify_sha256(p_input, repack_path)
+print("###############################################################################")
+print("# TEST 3/5")
+print("# Comparing [compress/*]->batch-decompress->batch-compress->[batchcompress_path]")
+print("###############################################################################")
+batchdecompress_path.mkdir()
+batchcompress_path.mkdir()
 
-        """
-            if pzz : U -> decomp / already tested because unpzz let it decompressed by default
-            if pzz : U -> comp   / has to be tested
-            if pzz : C -> decomp / already tested because unpzz decompress by default
-            if pzz : C -> comp   / has to be tested
-        """
-        # Remove repack_path
-        shutil.rmtree(repack_path)
-        
-        # For all unpack_path folder we compress the file (if U -> comp ; if C -> comp)
-        for pzzpart_path in unpack_path.glob('*/*'):
-            # create a new compressed file without removing the original file
-            if os.system(f"python pzztool.py -c {pzzpart_path}") != 0:
-                raise Exception("Error while compress.")
-            # remove the original
-            os.remove(f"{pzzpart_path}")
+for folder_path in compress_path.glob('*'):
+    if os.system(f"python pzztool.py -bd \"{folder_path}\" \"{batchdecompress_path / folder_path.name}\"") != 0:
+        raise Exception("Error while decompress.")
 
-        if os.system(f"python pzztool.py -bpzz {unpack_path} {repack_path}") != 0:
-            raise Exception("Error while batch pzz.")
-        verify_sha256(p_input, repack_path)
-    elif args.test_check_decompress:
-        print("# TEST : CHECK DECOMPRESS")
-        if os.system(f"python pzztool.py -bunpzz {p_input} {unpack_path}") != 0:
-            raise Exception("Error while batch unpzz.")
+for folder_path in batchdecompress_path.glob('*'):
+    if os.system(f"python pzztool.py -bc \"{folder_path}\" \"{batchcompress_path / folder_path.name}\"") != 0:
+        raise Exception("Error while decompress.")
 
-        invalid_files_count = 0
-        total = 0
-        # check that all TPLs length is a multiple of 32
-        for tpl_path in unpack_path.glob("**/*.tpl"):
-            if p.is_file():
-                total+=1
-                if (tpl_path.stat().st_size % 32) != 0:
-                    print(f"Invalid TPL file length modulo 32 ({tpl_path.stat().st_size % 32}) - {tpl_path}")
-                    invalid_files_count += 1
-        print(f"Invalid files : {invalid_files_count}/{total}")
+for file_path in unpack_path.glob('*/[0-9][0-9][0-9]U*'):
+    shutil.copy(file_path, batchcompress_path / file_path.parent.name / file_path.name)
+
+shutil.rmtree(unpack_path)
+shutil.rmtree(batchdecompress_path)
+
+for folder_path in compress_path.glob("*"):
+    verify_sha256(compress_path / folder_path.name, batchcompress_path / folder_path.name)
+shutil.rmtree(batchcompress_path)
+
+print("###############################################################################")
+print("# TEST 4/5")
+print("# Comparing [pzzfolder_path]->batch-unpzz->batch-pzz->[repacked_path]")
+print("###############################################################################")
+if os.system(f"python pzztool.py -bunpzz \"{pzzfolder_path}\" \"{unpack_path}\"") != 0:
+    raise Exception("Error while batch unpzz.")
+if os.system(f"python pzztool.py -bpzz \"{unpack_path}\" \"{repack_path}\"") != 0:
+    raise Exception("Error while batch pzz.")
+
+verify_sha256(pzzfolder_path, repack_path)
+shutil.rmtree(unpack_path)
+shutil.rmtree(repack_path)
+
+print("###############################################################################")
+print("# TEST 5/5")
+print("# Comparing [pzzfolder_path]->batch-unpack->(decompress or compress)->\nbatch-pzz->[repacked_path]")
+print("###############################################################################")
+# if pzz : U -> decomp / already tested because unpzz let it decompressed by default
+# if pzz : U -> comp   / has to be tested
+# if pzz : C -> decomp / already tested because unpzz decompress by default
+# if pzz : C -> comp   / has to be tested
+unpack_path.mkdir()
+repack_path.mkdir()
+
+if os.system(f"python pzztool.py -bu \"{pzzfolder_path}\" \"{unpack_path}\"") != 0:
+    raise Exception("Error while batch unpack.")
+
+# For all unpack_path folder we compress the file (if U -> comp ; if C -> comp)
+for file_path in unpack_path.glob('*/*'):
+    if file_path.suffix != ".pzzp":
+        # create a new compressed file without removing the original file
+        if os.system(f"python pzztool.py -c \"{file_path}\"") != 0:
+            raise Exception("Error while compress.")
+        # remove the original
+        file_path.unlink()
+
+if os.system(f"python pzztool.py -bpzz \"{unpack_path}\" \"{repack_path}\"") != 0:
+    raise Exception("Error while batch pzz.")
+
+verify_sha256(pzzfolder_path, repack_path)
+
+# Remove tests folders
+print("###############################################################################")
+print(f"# Cleaning test folders.")
+print("###############################################################################")
+shutil.rmtree(pzzfolder_path)
+shutil.rmtree(unpack_path)
+shutil.rmtree(repack_path)
+
+end = time.time()
+print("###############################################################################")
+print(f"# All tests are OK - elapsed time : {end - start}")
+print("###############################################################################")
