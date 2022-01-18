@@ -5,7 +5,7 @@ import os
 import shutil
 
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -19,8 +19,8 @@ __status__ = "developpement"
 roms_path           = Path("../ROM")
 dolphin_unpack_path = Path("dolphin_unpack")
 unpack_path         = Path("unpack")
-repack_path         = Path("repack")
 unpack2_path        = Path("unpack2")
+repack_path         = Path("repack")
 # if there is a way to create symlinks on GCM filesystem, it could create strange situations
 
 
@@ -70,15 +70,16 @@ def verify_GCM_sha256(folder1: Path, folder2: Path):
                 raise Exception(f"\"{path1}/\" and \"{path2}\" are different.")
 
 
-print("# Cleaning tests folder")
-# Remove tests folders
-if unpack_path.is_dir():
-    shutil.rmtree(unpack_path)
-if repack_path.is_dir():
-    shutil.rmtree(repack_path)
-if unpack2_path.is_dir():
-    shutil.rmtree(unpack2_path)
+print("###############################################################################")
+print("# Checking tests folder")
+print("###############################################################################")
+# Check if tests folders exist
+if unpack_path.is_dir() or unpack2_path.is_dir() or repack_path.is_dir():
+    raise Exception(f"Error - Please remove:\n-{unpack_path}\n-{unpack2_path}\n{repack_path}")
+
+print("###############################################################################")
 print("# Comparing unpacked ROMs with dolphin extracts")
+print("###############################################################################")
 # unpack ROM in unpack_path
 unpack_path.mkdir(parents=True)
 for iso_path in roms_path.glob("*"):
@@ -90,7 +91,9 @@ for iso_path in roms_path.glob("*"):
 for folder_path in unpack_path.glob("*"):
     verify_GCM_sha256(folder_path, dolphin_unpack_path / folder_path.name)
 
+print("###############################################################################")
 print("# Comparing iso->[1:unpacked]->repacked->[2:unpacked]")
+print("###############################################################################")
 # repack unpack_path repack_path
 repack_path.mkdir()
 for folder_path in unpack_path.glob("*"):
@@ -113,7 +116,9 @@ for folder_path in unpack_path.glob("*"):
 # remove unpack2_path
 shutil.rmtree(unpack2_path)
 
+print("###############################################################################")
 print("# Comparing iso->[1:unpacked]->rebuild_fst->repack->[2:unpacked]")
+print("###############################################################################")
 # rebuild unpack_path FSTs
 for folder_path in unpack_path.glob("*"):
     if os.system(f"python gcmtool.py -r \"{folder_path}\"") != 0:
@@ -139,8 +144,12 @@ for folder_path in unpack_path.glob("*"):
     verify_GCM_sha256(folder_path, unpack2_path / folder_path.name)
 
 # remove unpack_path unpack2_path
-print(f"# Removing {unpack_path} and {unpack2_path}.")
+print("###############################################################################")
+print(f"# Cleaning test folders.")
+print("###############################################################################")
 shutil.rmtree(unpack_path)
 shutil.rmtree(unpack2_path)
 
+print("###############################################################################")
 print("# All tests are OK")
+print("###############################################################################")
