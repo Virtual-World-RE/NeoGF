@@ -5,7 +5,7 @@ import os
 import shutil
 
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -62,15 +62,16 @@ def verify_AFS_sha256(folder1: Path, folder2: Path):
             raise Exception(f"\"{path1}/\" and \"{path2}\" are different.")
 
 
-print("# Cleaning tests folder")
-# Remove tests folders
-if unpack_path.is_dir():
-    shutil.rmtree(unpack_path)
-if unpack2_path.is_dir():
-    shutil.rmtree(unpack2_path)
-if repack_path.is_dir():
-    shutil.rmtree(repack_path)
+print("###############################################################################")
+print("# Checking tests folder")
+print("###############################################################################")
+# Check if tests folders exist
+if unpack_path.is_dir() or unpack2_path.is_dir() or repack_path.is_dir():
+    raise Exception(f"Error - Please remove:\n-{unpack_path}\n-{unpack2_path}\n{repack_path}")
+
+print("###############################################################################")
 print("# Comparing unpacked AFS with AFSPacker unpacks.")
+print("###############################################################################")
 unpack_path.mkdir()
 if not afspacker_unpack_path.is_dir():
     afspacker_unpack_path.mkdir()
@@ -90,7 +91,9 @@ for folder_path in unpack_path.glob("*"):
     if folder_path.is_dir():
         verify_AFS_sha256(folder_path/"root", afspacker_unpack_path / folder_path.stem)
 
+print("###############################################################################")
 print("# Comparing repacked AFS with originals AFS.")
+print("###############################################################################")
 repack_path.mkdir()
 # repack unpack_path repack_path
 for folder_path in unpack_path.glob("*"):
@@ -102,6 +105,18 @@ for afs_path in repack_path.glob("*"):
     print(f"compare \"{afs_path}\" - \"{afss_path / Path(folder_path.stem).with_suffix('.afs')}\"")
     compare_sha256(afs_path, afss_path / Path(folder_path.stem).with_suffix(".afs"))
 
+# Patch unpack files whithout changing their len
+# Patch unpack files changing len to max
+# Patch unpack files with 1 byte in a new block
+# Patch unpack files with 1 block less
+
+
+
+
+print("###############################################################################")
+print(f"# Cleaning test folders.")
+print("###############################################################################")
+
 # Remove tests folders
 if unpack_path.is_dir():
     shutil.rmtree(unpack_path)
@@ -109,4 +124,7 @@ if unpack2_path.is_dir():
     shutil.rmtree(unpack2_path)
 if repack_path.is_dir():
     shutil.rmtree(repack_path)
+
+print("###############################################################################")
 print("# All tests are OK")
+print("###############################################################################")
