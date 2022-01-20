@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-import hashlib
 import os
 from pathlib import Path
 import shutil
-import time
+from time import time
 
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
+
 
 ##################################################
 # Set afsdump_path with your dumped afs_data.afs
@@ -25,23 +25,64 @@ batchcompress_path = Path("batch_compress")
 batchdecompress_path = Path("batch_decompress")
 
 
-# compare two files sha256
-def compare_sha256(file1_path:Path, file2_path:Path):
-    return hashlib.sha256( file1_path.read_bytes() ).hexdigest() == hashlib.sha256( file2_path.read_bytes() ).hexdigest()
+# compare two files
+def compare_files(file1_path:Path, file2_path:Path):
+    CLUSTER_LEN = 131072
+    with file1_path.open("rb") as file1, file2_path.open("rb") as file2:
+        # Init
+        bytes1 = file1.read(CLUSTER_LEN)
+        bytes2 = file2.read(CLUSTER_LEN)
+        while bytes1 or bytes2: # continue if bytes1 and bytes2 have a len > 0
+            if bytes1 != bytes2:
+                return False
+            bytes1 = file1.read(CLUSTER_LEN)
+            bytes2 = file2.read(CLUSTER_LEN)
+    return True
 
-# compare all files sha256 from folder1 and folder2
+
+# compare all files from folder1 and folder2
 #     -> raise an exception if there is a difference
-def verify_sha256(folder1: Path, folder2: Path):
-    folder1_file_count = len(list(folder1.glob("*")))
+def compare_folders(folder1: Path, folder2: Path):
+    folder1_paths = list(folder1.glob("*"))
+    folder1_file_count = len(folder1_paths)
     print(f"compare \"{folder1}\" - \"{folder2}\" ({folder1_file_count} files)")
     if folder1_file_count == 0:
         raise Exception(f"ERROR - EMPTY FOLDER: {folder1}")
-    for file_path in folder1.glob("*"):
-        if hashlib.sha256( file_path.read_bytes() ).hexdigest() != hashlib.sha256( (folder2 / file_path.name).read_bytes() ).hexdigest() :
+    for file_path in folder1_paths:
+        if not compare_files(file_path, (folder2 / file_path.name)):
             raise Exception(f"ERROR - INVALID FILE: {folder2 / file_path.name}")
 
 
-start = time.time()
+##################################################
+# pzztool.py commands wrappers
+##################################################
+def pzztool_bu(in_pzzfolder_path:Path, batchunpack_path:Path):
+    if os.system(f"python pzztool.py -bu \"{in_pzzfolder_path}\" \"{batchunpack_path}\"") != 0:
+        raise Exception("Error while batch unpack.")
+def pzztool_bp(in_unpack_path:Path, batchpack_path:Path):
+    if os.system(f"python pzztool.py -bp \"{in_unpack_path}\" \"{batchpack_path}\"") != 0:
+        raise Exception("Error while batch pack.")
+def pzztool_d(pzzp_path:Path, file_path:Path):
+    if os.system(f"python pzztool.py -d \"{pzzp_path}\" \"{file_path}\"") != 0:
+        raise Exception("Error while decompress.")
+def pzztool_c(file_path:Path):
+    if os.system(f"python pzztool.py -c \"{file_path}\"") != 0:
+        raise Exception("Error while compress.")
+def pzztool_bd(folder_path:Path, out_folder_path:Path):
+    if os.system(f"python pzztool.py -bd \"{folder_path}\" \"{out_folder_path}\"") != 0:
+        raise Exception("Error while batch decompress.")
+def pzztool_bc(folder_path:Path, out_folder_path:Path):
+    if os.system(f"python pzztool.py -bc \"{folder_path}\" \"{out_folder_path}\"") != 0:
+        raise Exception("Error while batch compress.")
+def pzztool_bunpzz(in_pzzfolder_path:Path, unpzzfolder_path:Path):
+    if os.system(f"python pzztool.py -bunpzz \"{in_pzzfolder_path}\" \"{unpzzfolder_path}\"") != 0:
+        raise Exception("Error while batch unpzz.")
+def pzztool_bpzz(folder_path:Path, out_pzzfolder_path:Path):
+    if os.system(f"python pzztool.py -bpzz \"{folder_path}\" \"{out_pzzfolder_path}\"") != 0:
+        raise Exception("Error while batch pzz.")
+
+
+start = time()
 print("###############################################################################")
 print("# Checking tests folder -> tests take 3 hour 35 minutes")
 print("###############################################################################")
@@ -60,15 +101,10 @@ repack_path.mkdir()
 for pzz_path in afsdump_path.glob("*.pzz"):
     shutil.copy(pzz_path, pzzfolder_path / pzz_path.name)
 
-if os.system(f"python pzztool.py -bu \"{pzzfolder_path}\" \"{unpack_path}\"") != 0:
-    raise Exception("Error while batch unpack.")
-if os.system(f"python pzztool.py -bp \"{unpack_path}\" \"{repack_path}\"") != 0:
-    raise Exception("Error while batch pack.")
+pzztool_bu(pzzfolder_path, unpack_path)
+pzztool_bp(unpack_path, repack_path)
 
-for pzz_path in pzzfolder_path.glob("*"):
-    print(f"compare \"{pzz_path}\" - \"{repack_path / pzz_path.name}\"")
-    if not compare_sha256(pzz_path, repack_path / pzz_path.name):
-        raise Exception(f"INVALID FILE: {repack_path / pzz_path.name}")
+compare_folders(pzzfolder_path, repack_path)
 
 shutil.rmtree(repack_path)
 
@@ -77,23 +113,22 @@ print("# TEST 2/5")
 print("# Comparing unpack_path/[*.pzzp]->decompress->compress_path/[*.pzzp] PZZ part")
 print("###############################################################################")
 compress_path.mkdir()
+unpack_paths = list(unpack_path.glob("*/*.pzzp"))
 
 for folder_path in unpack_path.glob("*"):
     (compress_path / folder_path.name).mkdir()
 
-for pzzp_path in unpack_path.glob("*/*.pzzp"):
-    if os.system(f"python pzztool.py -d \"{pzzp_path}\" \"{compress_path / pzzp_path.parent.name / Path(pzzp_path.stem).with_suffix('.dat')}\"") != 0:
-        raise Exception("Error while decompress.")
+for pzzp_path in unpack_paths:
+    pzztool_d(pzzp_path, compress_path / pzzp_path.parent.name / Path(pzzp_path.stem).with_suffix('.dat'))
 
 for file_path in compress_path.glob('*/*'):
-    if os.system(f"python pzztool.py -c \"{file_path}\"") != 0:
-        raise Exception("Error while compress.")
+    pzztool_c(file_path)
     file_path.unlink()
 
-for pzzp_path in unpack_path.glob("*/*.pzzp"):
+for pzzp_path in unpack_paths:
     file_path = compress_path / pzzp_path.parent.name / pzzp_path.name
     print(f"compare \"{pzzp_path}\" - \"{file_path}\"")
-    if not compare_sha256(pzzp_path, file_path):
+    if not compare_files(pzzp_path, file_path):
         raise Exception(f"INVALID FILE: {file_path}")
 
 print("###############################################################################")
@@ -103,22 +138,22 @@ print("#########################################################################
 batchdecompress_path.mkdir()
 batchcompress_path.mkdir()
 
-for folder_path in compress_path.glob('*'):
-    if os.system(f"python pzztool.py -bd \"{folder_path}\" \"{batchdecompress_path / folder_path.name}\"") != 0:
-        raise Exception("Error while decompress.")
+compress_paths = list(compress_path.glob('*'))
+for folder_path in compress_paths:
+    pzztool_bd(folder_path, batchdecompress_path / folder_path.name)
 
 for folder_path in batchdecompress_path.glob('*'):
-    if os.system(f"python pzztool.py -bc \"{folder_path}\" \"{batchcompress_path / folder_path.name}\"") != 0:
-        raise Exception("Error while decompress.")
+    pzztool_bc(folder_path, batchcompress_path / folder_path.name)
 
+# Copy uncompressed files that haven't been processed by *.pzzp glob
 for file_path in unpack_path.glob('*/[0-9][0-9][0-9]U*'):
     shutil.copy(file_path, batchcompress_path / file_path.parent.name / file_path.name)
 
 shutil.rmtree(unpack_path)
 shutil.rmtree(batchdecompress_path)
 
-for folder_path in compress_path.glob("*"):
-    verify_sha256(compress_path / folder_path.name, batchcompress_path / folder_path.name)
+for folder_path in compress_paths:
+    compare_folders(compress_path / folder_path.name, batchcompress_path / folder_path.name)
 
 shutil.rmtree(compress_path)
 shutil.rmtree(batchcompress_path)
@@ -127,12 +162,11 @@ print("#########################################################################
 print("# TEST 4/5")
 print("# Comparing [pzzfolder_path]->batch-unpzz->batch-pzz->[repacked_path]")
 print("###############################################################################")
-if os.system(f"python pzztool.py -bunpzz \"{pzzfolder_path}\" \"{unpack_path}\"") != 0:
-    raise Exception("Error while batch unpzz.")
-if os.system(f"python pzztool.py -bpzz \"{unpack_path}\" \"{repack_path}\"") != 0:
-    raise Exception("Error while batch pzz.")
+pzztool_bunpzz(pzzfolder_path, unpack_path)
+pzztool_bpzz(unpack_path, repack_path)
 
-verify_sha256(pzzfolder_path, repack_path)
+compare_folders(pzzfolder_path, repack_path)
+
 shutil.rmtree(unpack_path)
 shutil.rmtree(repack_path)
 
@@ -147,22 +181,19 @@ print("#########################################################################
 unpack_path.mkdir()
 repack_path.mkdir()
 
-if os.system(f"python pzztool.py -bu \"{pzzfolder_path}\" \"{unpack_path}\"") != 0:
-    raise Exception("Error while batch unpack.")
+pzztool_bu(pzzfolder_path, unpack_path)
 
 # For all unpack_path folder we compress the file (if U -> comp ; if C -> comp)
 for file_path in unpack_path.glob('*/*'):
     if file_path.suffix != ".pzzp":
         # create a new compressed file without removing the original file
-        if os.system(f"python pzztool.py -c \"{file_path}\"") != 0:
-            raise Exception("Error while compress.")
+        pzztool_c(file_path)
         # remove the original
         file_path.unlink()
 
-if os.system(f"python pzztool.py -bpzz \"{unpack_path}\" \"{repack_path}\"") != 0:
-    raise Exception("Error while batch pzz.")
+pzztool_bpzz(unpack_path, repack_path)
 
-verify_sha256(pzzfolder_path, repack_path)
+compare_folders(pzzfolder_path, repack_path)
 
 # Remove tests folders
 print("###############################################################################")
@@ -172,7 +203,7 @@ shutil.rmtree(pzzfolder_path)
 shutil.rmtree(unpack_path)
 shutil.rmtree(repack_path)
 
-end = time.time()
+end = time()
 print("###############################################################################")
 print(f"# All tests are OK - elapsed time : {end - start}")
 print("###############################################################################")
