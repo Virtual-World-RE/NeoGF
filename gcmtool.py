@@ -214,7 +214,7 @@ class Gcm:
         with iso_path.open("rb") as iso_file:
             bootbin = BootBin(iso_file.read(BootBin.LEN))
             if bootbin.dvd_magic() != Gcm.DVD_MAGIC:
-                raise Exception("Invalid DVD format - this tool is for ISO/GCM files")
+                raise Exception("Error - Invalid DVD format - this tool is for ISO/GCM files")
 
             bi2bin_data = iso_file.read(Gcm.BI2BIN_LEN)
 
@@ -318,7 +318,7 @@ class Gcm:
             fstbin_offset = bootbin.fstbin_offset()
             fstbin_len = bootbin.fstbin_len()
             if (sys_path / "fst.bin").stat().st_size != fstbin_len:
-                raise Exception(f"Invalid fst.bin size in boot.bin offset 0x{BootBin.FSTLEN_OFFSET:x}:0x{BootBin.FSTLEN_OFFSET+4:x}!")
+                raise Exception(f"Error - Invalid fst.bin size in boot.bin offset 0x{BootBin.FSTLEN_OFFSET:x}:0x{BootBin.FSTLEN_OFFSET+4:x}!")
             logging.debug(f"{sys_path / 'fst.bin'}       -> {iso_path}(0x{fstbin_offset:x}:0x{fstbin_offset + fstbin_len:x})")
             iso_file.seek( fstbin_offset )
             fstbin_data = (sys_path / "fst.bin").read_bytes()
@@ -366,7 +366,7 @@ class Gcm:
                     file_len   = int.from_bytes(fstbin_data[i+8:i+12], "big", signed=False)
 
                     if (currentdir_path / name).stat().st_size != file_len:
-                        raise Exception(f"Invalid file size : {currentdir_path / name} - use --rebuild-fst before packing files in the iso.")
+                        raise Exception(f"Error - Invalid file size: {currentdir_path / name} - use --rebuild-fst before packing files in the iso.")
                     logging.debug(f"{currentdir_path / name} -> {iso_path}(0x{file_offset:x}:0x{file_offset + file_len:x})")
                     iso_file.seek(file_offset)
                     iso_file.write( (currentdir_path / name).read_bytes() )
@@ -375,12 +375,12 @@ class Gcm:
         sys_path = folder_path / "sys"
 
         dol_offset = align_offset(Gcm.APPLOADER_OFFSET + (sys_path / "apploader.img").stat().st_size, align)
-        logging.info(f"Patching sys/boot.bin offset 0x{BootBin.DOLOFFSET_OFFSET:x} with new dol offset (0x{dol_offset:x})")
+        logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.DOLOFFSET_OFFSET:x} with new dol offset (0x{dol_offset:x})")
         bootbin = BootBin((sys_path / "boot.bin").read_bytes())
         bootbin.set_dol_offset(dol_offset)
         
         fst_offset = align_offset(dol_offset + (sys_path / "boot.dol").stat().st_size, align)
-        logging.info(f"Patching sys/boot.bin offset 0x{BootBin.FSTOFFSET_OFFSET:x} with new fst offset (0x{fst_offset:x})")
+        logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.FSTOFFSET_OFFSET:x} with new FST offset (0x{fst_offset:x})")
         bootbin.set_fst_offset(fst_offset)
         
         fst_tree = FstTree(root_path, fst_offset, align=align)
@@ -393,13 +393,13 @@ class Gcm:
 
         fst_path = sys_path / "fst.bin"
 
-        logging.info("Writing fst in sys/fst.bin")
+        logging.info(f"Writing fst in {Path('sys/fst.bin')}")
         fst_path.write_bytes( fst_tree.get_fst() )
 
         fst_size = fst_path.stat().st_size
-        logging.info(f"Patching sys/boot.bin offset 0x{BootBin.FSTLEN_OFFSET:x} with new fst size (0x{fst_size:x})")
+        logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.FSTLEN_OFFSET:x} with new fst size (0x{fst_size:x})")
         bootbin.set_fst_len(fst_size)
-        logging.info(f"Patching sys/boot.bin offset 0x{BootBin.MAXFSTLEN_OFFSET:x} with new max fst size (0x{fst_size:x})")
+        logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.MAXFSTLEN_OFFSET:x} with new max fst size (0x{fst_size:x})")
         bootbin.set_max_fst_len(fst_size)
 
         (sys_path / "boot.bin").write_bytes(bootbin.data())
@@ -415,9 +415,9 @@ def get_argparser():
     parser.add_argument('output_path', metavar='OUTPUT', help='', nargs='?', default="")
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-p', '--pack',   action='store_true', help="-p source_folder (dest_file.iso) : Pack source_folder in new file source_folder.iso or dest_file.iso if specified")
-    group.add_argument('-u', '--unpack', action='store_true', help='-u source_iso.iso (dest_folder) : Unpack the GCM/ISO in new folder source_iso or dest_folder if specified')
-    group.add_argument('-r', '--rebuild-fst', action='store_true', help='-r game_folder : Rebuild the game_folder/sys/fst.bin using files in game_folder/root')
+    group.add_argument('-p', '--pack',   action='store_true', help="-p source_folder (dest_file.iso): Pack source_folder in new file source_folder.iso or dest_file.iso if specified")
+    group.add_argument('-u', '--unpack', action='store_true', help='-u source_iso.iso (dest_folder): Unpack the GCM/ISO in new folder source_iso or dest_folder if specified')
+    group.add_argument('-r', '--rebuild-fst', action='store_true', help='-r game_folder: Rebuild the game_folder/sys/fst.bin using files in game_folder/root')
     return parser
 
 
@@ -444,6 +444,6 @@ if __name__ == '__main__':
     elif args.rebuild_fst:
         logging.info("### Rebuilding FST and patching boot.bin")
         if args.align < 1:
-            raise Exception("Align must be > 0")
-        logging.info(f"Using alignment : {args.align}")
+            raise Exception("Error - Align must be > 0.")
+        logging.info(f"Using alignment: {args.align}")
         gcm.rebuild_fst(p_input, args.align)
