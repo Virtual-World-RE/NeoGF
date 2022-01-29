@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 from afstool import AfsInvalidFileLenError, Afs, FilenameResolver
-from math import floor, ceil
 import os
 from pathlib import Path
 import shutil
 from time import time
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -94,7 +93,6 @@ def compare_folders(folder1: Path, folder2: Path, compare_mtime=False):
     for path1 in folder1_tmp_paths:
         path2 = folder2 / Path(*path1.parts[len1:])
         if compare_mtime:
-            # When using FD Date it floor to second
             if round(path1.stat().st_mtime) != round(path2.stat().st_mtime):
                 raise Exception(f"\"{path1}\" and \"{path2}\" mtime (update time) are different:\n    {round(path1.stat().st_mtime)}-{round(path2.stat().st_mtime)}")
         if not compare_files(path1, path2):
@@ -165,6 +163,9 @@ def afstool_pack(folder_path:Path, afs_path:Path):
 def afstool_unpack(afs_path:Path, folder_path:Path):
     if os.system(f"python afstool.py -u \"{afs_path}\" \"{folder_path}\"") != 0:
         raise Exception("Error while unpacking.")
+def afstool_stats(path:Path):
+    if os.system(f"python afstool.py -s \"{path}\" > NUL") != 0:
+        raise Exception("Error while getting stats.")
 
 
 def repack_unpack2_compare():
@@ -189,7 +190,7 @@ def repack_unpack2_compare():
     shutil.rmtree(unpack2_path)
 
 
-TEST_COUNT = 6
+TEST_COUNT = 7
 
 start = time()
 print("###############################################################################")
@@ -203,7 +204,6 @@ print("#########################################################################
 print(f"# TEST 1/{TEST_COUNT}")
 print("# Comparing afss_path->unpack->[unpack_path] AFS with [afspacker_unpack_path].")
 print("###############################################################################")
-
 unpack_path.mkdir()
 afss_paths = list(afss_path.glob("*"))
 
@@ -224,6 +224,16 @@ for folder_path in unpack_path.glob("*"):
 
 print("###############################################################################")
 print(f"# TEST 2/{TEST_COUNT}")
+print("# Testing --stats command with all AFS and all unpacked AFS.")
+print("###############################################################################")
+for afs_path in afss_path.glob("*"):
+    afstool_stats(afs_path)
+
+for folder_path in unpack_path.glob("*"):
+    afstool_stats(folder_path)
+
+print("###############################################################################")
+print(f"# TEST 3/{TEST_COUNT}")
 print("# Comparing unpack_path->pack->[repack_path] AFS with [afss_path].")
 print("###############################################################################")
 repack_path.mkdir()
@@ -237,7 +247,7 @@ compare_folders(afss_path, repack_path)
 shutil.rmtree(repack_path)
 
 print("###############################################################################")
-print(f"# TEST 3/{TEST_COUNT}")
+print(f"# TEST 4/{TEST_COUNT}")
 print("# Comparing [unpack_path]->patch->pack->unpack->[unpack2_path].")
 print("###############################################################################")
 # Patch unpack files whithout changing their len
@@ -249,7 +259,7 @@ for folder_path in unpack_path.glob("*"):
 repack_unpack2_compare()
 
 print("###############################################################################")
-print(f"# TEST 4/{TEST_COUNT}")
+print(f"# TEST 5/{TEST_COUNT}")
 print("# Comparing [unpack_path]->patch(max_size)->pack->unpack->[unpack2_path].")
 print("###############################################################################")
 # Patch unpack files changing len to max
@@ -258,7 +268,7 @@ patch_unpackedfiles_in_folder(unpack_path)
 repack_unpack2_compare()
 
 print("###############################################################################")
-print(f"# TEST 5/{TEST_COUNT}")
+print(f"# TEST 6/{TEST_COUNT}")
 print("# Testing exception unpack_path->patch(max_size+1)->[pack]->repack_path.")
 print("###############################################################################")
 # Patch unpack files with 1 byte in a new used block in the first file
@@ -278,7 +288,7 @@ for folder_path in unpack_path.glob("*"):
 shutil.rmtree(repack_path)
 
 print("###############################################################################")
-print(f"# TEST 6/{TEST_COUNT}")
+print(f"# TEST 7/{TEST_COUNT}")
 print("# Comparing [unpack_path]->patch(blocks - 1)->pack->unpack->[unpack2_path].")
 print("###############################################################################")
 # Patch unpack files with 1 block less
