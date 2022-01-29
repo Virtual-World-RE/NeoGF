@@ -5,7 +5,7 @@ from pathlib import Path
 import shutil
 from time import time
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -25,6 +25,14 @@ unpack2_path = Path("unpack2")
 repack_path  = Path("repack")
 
 
+def test_storage():
+    total, used, free = shutil.disk_usage("/")
+    if free - 10**10 < 3 * sum(path.stat().st_size for path in afss_path.glob('*') if path.is_file()):
+        raise Exception("Error - Not enought free space on the disk to run tests.")
+
+
+# Need to know offsets of TOC to get the max length of files
+# and unpacked names of files when duplicated
 class AfsTest(Afs):
     # return a list of tuples with (offset, resolved filename)
     def get_range(self, folder_path:Path):
@@ -49,10 +57,10 @@ def print_paths_differences(folder1_paths:list, folder2_paths:list):
     for path in backup_paths:
         if path in folder1_paths:
             folder1_paths.remove(path)
-    print("folder1 diff :")
+    print("folder1 diff:")
     for path in folder1_paths:
         print(path)
-    print("folder2 diff :")
+    print("folder2 diff:")
     for path in folder2_paths:
         print(path)
 
@@ -79,7 +87,7 @@ def compare_folders(folder1: Path, folder2: Path, compare_mtime=False):
     folder1_file_count = len(folder1_tmp_paths)
     print(f"compare \"{folder1}\" - \"{folder2}\" ({folder1_file_count} files)")
     if folder1_file_count == 0:
-        raise Exception(f"ERROR - EMPTY FOLDER: {folder1}")
+        raise Exception(f"Error - Empty folder: {folder1}")
 
     len1 = len(folder1.parts)
     len2 = len(folder2.parts)
@@ -88,15 +96,15 @@ def compare_folders(folder1: Path, folder2: Path, compare_mtime=False):
     folder2_paths = [Path(*path.parts[len2:]) for path in folder2.glob("*")]
     if folder1_paths != folder2_paths:
         print_paths_differences(folder1_paths, folder2_paths)
-        raise Exception(f"Folders \"{folder1}\" and \"{folder2}\" are different (not the same folders or files names).")
+        raise Exception(f"Error - Folders \"{folder1}\" and \"{folder2}\" are different (not the same folders or files names).")
     # 2. Compare files content
     for path1 in folder1_tmp_paths:
         path2 = folder2 / Path(*path1.parts[len1:])
         if compare_mtime:
             if round(path1.stat().st_mtime) != round(path2.stat().st_mtime):
-                raise Exception(f"\"{path1}\" and \"{path2}\" mtime (update time) are different:\n    {round(path1.stat().st_mtime)}-{round(path2.stat().st_mtime)}")
+                raise Exception(f"Error - \"{path1}\" and \"{path2}\" mtime (update time) are different:\n    {round(path1.stat().st_mtime)}-{round(path2.stat().st_mtime)}")
         if not compare_files(path1, path2):
-            raise Exception(f"\"{path1}\" and \"{path2}\" are different.")
+            raise Exception(f"Error - \"{path1}\" and \"{path2}\" are different.")
 
 
 # compare two AFS
@@ -150,24 +158,6 @@ def patch_unpackedfiles_in_folder(folder_path:Path, bool_len:bool = False):
                 break
 
 
-##################################################
-# afstool.py commands wrappers
-##################################################
-def afspacker_extract(afs_path:Path, folder_path:Path):
-    print(f"AFSPacker.exe : Extracting \"{afs_path}\" in \"{folder_path}\"")
-    if os.system(f"{afspacker_path} -e \"{afs_path}\" \"{folder_path}\" > NUL") != 0:
-        raise Exception("Error while unpacking with AFSPacker.exe")
-def afstool_pack(folder_path:Path, afs_path:Path):
-    if os.system(f"python afstool.py -p \"{folder_path}\" \"{afs_path}\"") != 0:
-        raise Exception("Error while (re)packing.")
-def afstool_unpack(afs_path:Path, folder_path:Path):
-    if os.system(f"python afstool.py -u \"{afs_path}\" \"{folder_path}\"") != 0:
-        raise Exception("Error while unpacking.")
-def afstool_stats(path:Path):
-    if os.system(f"python afstool.py -s \"{path}\" > NUL") != 0:
-        raise Exception("Error while getting stats.")
-
-
 def repack_unpack2_compare():
     repack_path.mkdir()
     unpack2_path.mkdir()
@@ -190,6 +180,24 @@ def repack_unpack2_compare():
     shutil.rmtree(unpack2_path)
 
 
+##################################################
+# afstool.py commands wrappers
+##################################################
+def afspacker_extract(afs_path:Path, folder_path:Path):
+    print(f"AFSPacker.exe: Extracting \"{afs_path}\" in \"{folder_path}\"")
+    if os.system(f"{afspacker_path} -e \"{afs_path}\" \"{folder_path}\" > NUL") != 0:
+        raise Exception("Error while unpacking with AFSPacker.exe")
+def afstool_pack(folder_path:Path, afs_path:Path):
+    if os.system(f"python afstool.py -p \"{folder_path}\" \"{afs_path}\"") != 0:
+        raise Exception("Error while (re)packing.")
+def afstool_unpack(afs_path:Path, folder_path:Path):
+    if os.system(f"python afstool.py -u \"{afs_path}\" \"{folder_path}\"") != 0:
+        raise Exception("Error while unpacking.")
+def afstool_stats(path:Path):
+    if os.system(f"python afstool.py -s \"{path}\" > NUL") != 0:
+        raise Exception("Error while getting stats.")
+
+
 TEST_COUNT = 7
 
 start = time()
@@ -199,6 +207,8 @@ print("#########################################################################
 # Check if tests folders exist
 if unpack_path.is_dir() or unpack2_path.is_dir() or repack_path.is_dir():
     raise Exception(f"Error - Please remove:\n-{unpack_path}\n-{unpack2_path}\n-{repack_path}")
+
+test_storage()
 
 print("###############################################################################")
 print(f"# TEST 1/{TEST_COUNT}")
@@ -305,5 +315,5 @@ shutil.rmtree(unpack_path)
 
 end = time()
 print("###############################################################################")
-print(f"# All tests are OK - elapsed time : {end - start}")
+print(f"# All tests are OK - elapsed time: {end - start}")
 print("###############################################################################")
