@@ -135,11 +135,11 @@ pzztool.py -bp source_folder optional_dest_folder
 ### Extracted files format
 Every file extracted has a name using the format:
 
-AAAB_C.D
+AAAB_CD.D
 - **AAA** is the 3 digits index of the file in the PZZ starting at 000.
 - **B** describe the compression state of the file when packed in the PZZ. If compressed it's **C** and if not it's **U**.
 - **C** is the name of the PZZ.
-- **D** is the extension of the file. If the file is compressed it's **.pzzp** (PZZ Part) and if the file is uncompressed by default it's **.dat**
+- **D** is the resolved name and extension of the file. If the file is compressed it use the **.pzzp** (PZZ Part) extension and if the file is uncompressed by default it's **.dat**
 
 For example file **012C_cmn_data.dat** describe:
 - the 13th file off the pzz,
