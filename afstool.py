@@ -126,7 +126,7 @@ class Afs:
     def __loadsys_from_afs(self, afs_file, afs_len:int):
             self.__tableofcontent = afs_file.read(Afs.HEADER_LEN)
             if self.__get_magic() not in [Afs.MAGIC_00, Afs.MAGIC_20]:
-                raise Exception("Invalid AFS magic number.")
+                raise Exception("Error - Invalid AFS magic number.")
             self.__file_count = self.__get_file_count()
             self.__tableofcontent += afs_file.read(self.__file_count*8)
             tableofcontent_len = len(self.__tableofcontent)
@@ -201,11 +201,11 @@ class Afs:
                 logging.info("There is no filename directory. Creating new names and dates for files.")
             else:
                 logging.debug(f"filenamedirectory_offset:0x{self.__filenamedirectory_offset:x}, filenamedirectory_len:0x{self.__filenamedirectory_len:x}.")
-                logging.info("Writting sys/filenamedirectory.bin")
+                logging.info(f"Writting {Path('sys/filenamedirectory.bin')}")
                 (sys_path / "filenamedirectory.bin").write_bytes(self.__filenamedirectory)
                 resolver = FilenameResolver(sys_path)
 
-            logging.info("Writting sys/tableofcontent.bin")
+            logging.info(f"Writting {Path('sys/tableofcontent.bin')}")
             (sys_path / "tableofcontent.bin").write_bytes(self.__tableofcontent)
 
             logging.info(f"Extracting {self.__file_count} files.")
@@ -258,7 +258,7 @@ class Afs:
                             raise AfsInvalidFileLenError(f"File {file_path} as a new file_len (0x{new_file_len:x}) > next file offset (0x{next_offset:x}). "\
                                 "This means that we have to rebuild the AFS using -r and changing offset of all next files and this could lead to bugs if the main dol use AFS relative file offsets.")
                     self.__patch_file_len(i, new_file_len)
-                # If there is a filenamedirectory we update mtime :
+                # If there is a filenamedirectory we update mtime:
                 if self.__filenamedirectory:
                     self.__patch_mtime(i, round(file_path.stat().st_mtime))
                 logging.debug(f"Packing {file_path} 0x{file_offset:x}:0x{file_offset+new_file_len:x} in AFS.")
@@ -267,11 +267,11 @@ class Afs:
             if self.__filenamedirectory:
                 afs_file.seek(self.__filenamedirectory_offset)
                 afs_file.write(self.__pad(self.__filenamedirectory))
-            logging.debug(f"Packing {sys_path}/tableofcontent.bin at the beginning of the AFS.")
+            logging.debug(f"Packing {sys_path / 'tableofcontent.bin'} at the beginning of the AFS.")
             afs_file.seek(0)
             afs_file.write(self.__tableofcontent)
     def rebuild(self, folder_path:Path):
-        raise Exception("Not implemented yet")
+        raise Exception("Error - Not implemented yet")
     def stats(self, path:Path):
         if path.is_file():
             with path.open("rb") as afs_file:
@@ -393,10 +393,10 @@ def get_argparser():
     parser.add_argument('output_path', metavar='OUTPUT', help='', nargs='?', default="")
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-p', '--pack',   action='store_true', help="-p source_folder (dest_file.afs) : Pack source_folder in new file source_folder.afs or dest_file.afs if specified.")
-    group.add_argument('-u', '--unpack', action='store_true', help="-u source_afs.afs (dest_folder) : Unpack the AFS in new folder source_afs or dest_folder if specified.")
-    group.add_argument('-s', '--stats',   action='store_true', help="-s source_afs.afs or source_folder : Get stats about AFS, files, memory, lengths and offsets.")
-    group.add_argument('-r', '--rebuild', help="-r source_folder fndo_offset : Rebuild AFS tableofcontent (TOC) and filenamedirectory (FND) using filenamedirectory_offset_offset=fndo_offset (the offset in the TOC).")
+    group.add_argument('-p', '--pack',   action='store_true', help="-p source_folder (dest_file.afs): Pack source_folder in new file source_folder.afs or dest_file.afs if specified.")
+    group.add_argument('-u', '--unpack', action='store_true', help="-u source_afs.afs (dest_folder): Unpack the AFS in new folder source_afs or dest_folder if specified.")
+    group.add_argument('-s', '--stats',   action='store_true', help="-s source_afs.afs or source_folder: Get stats about AFS, files, memory, lengths and offsets.")
+    group.add_argument('-r', '--rebuild', help="-r source_folder: Rebuild AFS tableofcontent (TOC) and filenamedirectory (FD) using rebuild.conf file.")
     return parser
 
 
