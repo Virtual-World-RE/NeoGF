@@ -5,7 +5,7 @@ import shutil
 from time import time
 
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -23,6 +23,12 @@ repack_path = Path("repack")
 compress_path = Path("compress")
 batchcompress_path = Path("batch_compress")
 batchdecompress_path = Path("batch_decompress")
+
+
+def test_storage():
+    total, used, free = shutil.disk_usage("/")
+    if free - 10**10 < 6 * sum(path.stat().st_size for path in afsdump_path.glob('*.pzz') if path.is_file()):
+        raise Exception("Error - Not enought free space on the disk to run tests.")
 
 
 # compare two files
@@ -47,10 +53,10 @@ def compare_folders(folder1: Path, folder2: Path):
     folder1_file_count = len(folder1_paths)
     print(f"compare \"{folder1}\" - \"{folder2}\" ({folder1_file_count} files)")
     if folder1_file_count == 0:
-        raise Exception(f"ERROR - EMPTY FOLDER: {folder1}")
+        raise Exception(f"Error - Empty folder: {folder1}")
     for file_path in folder1_paths:
         if not compare_files(file_path, (folder2 / file_path.name)):
-            raise Exception(f"ERROR - INVALID FILE: {folder2 / file_path.name}")
+            raise Exception(f"Error - Invalid file: {folder2 / file_path.name}")
 
 
 ##################################################
@@ -82,6 +88,8 @@ def pzztool_bpzz(folder_path:Path, out_pzzfolder_path:Path):
         raise Exception("Error while batch pzz.")
 
 
+TEST_COUNT = 5
+
 start = time()
 print("###############################################################################")
 print("# Checking tests folder -> tests take 3 hour 35 minutes")
@@ -90,8 +98,10 @@ print("#########################################################################
 if unpack_path.is_dir() or repack_path.is_dir() or compress_path.is_dir() or pzzfolder_path.is_dir() or batchdecompress_path.is_dir() or batchcompress_path.is_dir():
     raise Exception(f"Error - Please remove:\n-{unpack_path}\n-{repack_path}\n-{compress_path}\n-{pzzfolder_path}\n-{batchdecompress_path}\n-{batchcompress_path}")
 
+test_storage()
+
 print("###############################################################################")
-print("# TEST 1/5")
+print(f"# TEST 1/{TEST_COUNT}")
 print("# Comparing [original pzz]->unpacked->repacked->[repack_path]")
 print("###############################################################################")
 pzzfolder_path.mkdir()
@@ -109,7 +119,7 @@ compare_folders(pzzfolder_path, repack_path)
 shutil.rmtree(repack_path)
 
 print("###############################################################################")
-print("# TEST 2/5")
+print(f"# TEST 2/{TEST_COUNT}")
 print("# Comparing unpack_path/[*.pzzp]->decompress->compress_path/[*.pzzp] PZZ part")
 print("###############################################################################")
 compress_path.mkdir()
@@ -129,10 +139,10 @@ for pzzp_path in unpack_paths:
     file_path = compress_path / pzzp_path.parent.name / pzzp_path.name
     print(f"compare \"{pzzp_path}\" - \"{file_path}\"")
     if not compare_files(pzzp_path, file_path):
-        raise Exception(f"INVALID FILE: {file_path}")
+        raise Exception(f"Invalid file: {file_path}")
 
 print("###############################################################################")
-print("# TEST 3/5")
+print(f"# TEST 3/{TEST_COUNT}")
 print("# Comparing [compress/*]->batch-decompress->batch-compress->[batchcompress_path]")
 print("###############################################################################")
 batchdecompress_path.mkdir()
@@ -159,7 +169,7 @@ shutil.rmtree(compress_path)
 shutil.rmtree(batchcompress_path)
 
 print("###############################################################################")
-print("# TEST 4/5")
+print(f"# TEST 4/{TEST_COUNT}")
 print("# Comparing [pzzfolder_path]->batch-unpzz->batch-pzz->[repacked_path]")
 print("###############################################################################")
 pzztool_bunpzz(pzzfolder_path, unpack_path)
@@ -171,13 +181,13 @@ shutil.rmtree(unpack_path)
 shutil.rmtree(repack_path)
 
 print("###############################################################################")
-print("# TEST 5/5")
+print(f"# TEST 5/{TEST_COUNT}")
 print("# Comparing [pzzfolder_path]->batch-unpack->(decompress or compress)->\nbatch-pzz->[repacked_path]")
 print("###############################################################################")
-# if pzz : U -> decomp / already tested because unpzz let it decompressed by default
-# if pzz : U -> comp   / has to be tested
-# if pzz : C -> decomp / already tested because unpzz decompress by default
-# if pzz : C -> comp   / has to be tested
+# if pzz: U -> decomp / already tested because unpzz let it decompressed by default
+# if pzz: U -> comp   / has to be tested
+# if pzz: C -> decomp / already tested because unpzz decompress by default
+# if pzz: C -> comp   / has to be tested
 unpack_path.mkdir()
 repack_path.mkdir()
 
@@ -205,5 +215,5 @@ shutil.rmtree(repack_path)
 
 end = time()
 print("###############################################################################")
-print(f"# All tests are OK - elapsed time : {end - start}")
+print(f"# All tests are OK - elapsed time: {end - start}")
 print("###############################################################################")
