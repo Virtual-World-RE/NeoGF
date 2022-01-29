@@ -5,14 +5,14 @@ import shutil
 import logging
 
 
-__version__ = "0.14.8"
+__version__ = "0.14.7"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
 __status__ = "developpement"
 
 
-# For more information on the PZZ file format :
+# For more information on the PZZ file format:
 # http://virtualre.rf.gd/index.php/PZZ_(Gotcha_Force)
 
 
@@ -43,7 +43,7 @@ def get_file_path(file_data: bytes, path: Path):
                 return path.with_name(path.name + "mot").with_suffix(".bin")
             return path.with_suffix(".bin")
         if path.name[0:3] == "004":
-            if path.stem[-4:] != "_mdl" :
+            if path.stem[-4:] != "_mdl":
                 return path.with_name(path.name + "_mdl").with_suffix(".arc")
             return path.with_suffix(".arc")
         if path.name[0:3] == "005":
@@ -91,7 +91,7 @@ def get_file_path(file_data: bytes, path: Path):
     return path.with_suffix(".dat")
 
 
-# Not implemented : remove pad at the end of unpacked files
+# Not implemented: remove pad at the end of unpacked files
 # The problem is that we can't know the exact initial Null bytes pad of the file.
 # -> So we can't remove the trailing pad
 def remove_padding(file_data: bytearray):
@@ -173,7 +173,7 @@ def pzz_compress(uncompressed_bytes: bytes):
         max_i = -1
 
         #######################################################
-        # start : contains index .. (analysis of the algorithm is not redacted yet)
+        # start: contains index .. (analysis of the algorithm is not redacted yet)
         #######################################################
         while True:
             # start = index first occurencie of uncompressed_bytes[i:i+2] between start and i+1
@@ -248,7 +248,7 @@ def pzz_unpack(pzz_path:Path, folder_path:Path, auto_decompress:bool = False):
 
     with pzz_path.open("rb") as pzz_file:
         file_count = int.from_bytes(pzz_file.read(4), "big")
-        logging.debug(f"    -> File count : {file_count}")
+        logging.debug(f"    -> File count: {file_count}")
 
         # get a list with header file descriptors
         files_descriptors_data = pzz_file.read(file_count * 4)
@@ -304,7 +304,7 @@ def pzz_pack(folder_path:Path, pzz_path:Path, auto_compress:bool = False):
     if pzz_path == Path('.'):
         pzz_path = folder_path.with_suffix(".pzz")
     if pzz_path.suffix != ".pzz" and pzz_path.suffix != ".mdt":
-        logging.warning(f"Invalid file format '{pzz_path.suffix}' : dest must be a pzz or mdt")
+        logging.warning(f"Invalid file format '{pzz_path.suffix}': dest must be a pzz or mdt")
 
     # We get all filenames from the folder to pzz
     files_path = list(folder_path.glob("*"))
@@ -376,18 +376,18 @@ def get_argparser():
     parser.add_argument('output_path', metavar='OUTPUT', help='', nargs='?', default="")
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-pzz', '--pzz',             action='store_true', help="-pzz source_folder (dest_file.pzz) : pzz source_folder in new file source_folder.pzz or dest_file if specified")
-    group.add_argument('-unpzz', '--unpzz',         action='store_true', help="-unpzz source_folder.pzz (dest_folder) : unpzz the pzz in new folder source_folder or dest_folder if specified")
-    group.add_argument('-bpzz', '--batch-pzz',      action='store_true', help='-bpzz source_folder (dest_folder) : Batch pzz (auto compress) all pzz_folder from source_folder into source_folder or dest_folder if specified')
-    group.add_argument('-bunpzz', '--batch-unpzz',  action='store_true', help='-bunpzz source_folder (dest_folder) : Batch unpzz (auto decompress) all pzz from source_folder into source_folder or dest_folder if specified')
-    group.add_argument('-p', '--pack',              action='store_true', help="-p source_folder (dest_file.pzz) : Pack source_folder in new file source_folder.pzz or dest_file if specified")
-    group.add_argument('-u', '--unpack',            action='store_true', help='-u source_folder.pzz (dest_folder) : Unpack the pzz in new folder source_folder or dest_folder if specified')
-    group.add_argument('-bp', '--batch-pack',       action='store_true', help='-bp source_folder (dest_folder) : Batch pack all pzz_folder from source_folder into source_folder or dest_folder if specified')
-    group.add_argument('-bu', '--batch-unpack',     action='store_true', help='-bu source_folder (dest_folder) : Batch unpack all pzz from source_folder into source_folder or dest_folder if specified')
-    group.add_argument('-c', '--compress',          action='store_true', help='-c source_file (dest_file) : compress source_file in source_file.pzzp or dest_file if specified')
-    group.add_argument('-d', '--decompress',        action='store_true', help='-d source_file.pzzp (dest_file) : decompress source_file.pzzp in source_file or dest_file if specified')
-    group.add_argument('-bc', '--batch-compress',   action='store_true', help='-bc source_folder dest_folder : compress all files from source_folder into dest_folder')
-    group.add_argument('-bd', '--batch-decompress', action='store_true', help='-bd source_folder dest_folder : decompress all files from source_folder into dest_folder')
+    group.add_argument('-pzz', '--pzz',             action='store_true', help="-pzz source_folder (dest_file.pzz): pzz source_folder in new file source_folder.pzz or dest_file if specified")
+    group.add_argument('-unpzz', '--unpzz',         action='store_true', help="-unpzz source_folder.pzz (dest_folder): unpzz the pzz in new folder source_folder or dest_folder if specified")
+    group.add_argument('-bpzz', '--batch-pzz',      action='store_true', help='-bpzz source_folder (dest_folder): Batch pzz (auto compress) all pzz_folder from source_folder into source_folder or dest_folder if specified')
+    group.add_argument('-bunpzz', '--batch-unpzz',  action='store_true', help='-bunpzz source_folder (dest_folder): Batch unpzz (auto decompress) all pzz from source_folder into source_folder or dest_folder if specified')
+    group.add_argument('-p', '--pack',              action='store_true', help="-p source_folder (dest_file.pzz): Pack source_folder in new file source_folder.pzz or dest_file if specified")
+    group.add_argument('-u', '--unpack',            action='store_true', help='-u source_folder.pzz (dest_folder): Unpack the pzz in new folder source_folder or dest_folder if specified')
+    group.add_argument('-bp', '--batch-pack',       action='store_true', help='-bp source_folder (dest_folder): Batch pack all pzz_folder from source_folder into source_folder or dest_folder if specified')
+    group.add_argument('-bu', '--batch-unpack',     action='store_true', help='-bu source_folder (dest_folder): Batch unpack all pzz from source_folder into source_folder or dest_folder if specified')
+    group.add_argument('-c', '--compress',          action='store_true', help='-c source_file (dest_file): compress source_file in source_file.pzzp or dest_file if specified')
+    group.add_argument('-d', '--decompress',        action='store_true', help='-d source_file.pzzp (dest_file): decompress source_file.pzzp in source_file or dest_file if specified')
+    group.add_argument('-bc', '--batch-compress',   action='store_true', help='-bc source_folder dest_folder: compress all files from source_folder into dest_folder')
+    group.add_argument('-bd', '--batch-decompress', action='store_true', help='-bd source_folder dest_folder: decompress all files from source_folder into dest_folder')
     return parser
 
 
@@ -440,7 +440,7 @@ if __name__ == '__main__':
                     shutil.copy(pzzfile_path, p_output / pzzfile_path.name)
                 continue
             logging.info(f"Compressing {pzzfile_path} in {p_output / pzzfile_path.stem}.pzzp")
-            (p_output/pzzfile_path.stem).with_suffix(".pzzp").write_bytes(pzz_compress(pzzfile_path.read_bytes()))
+            (p_output / pzzfile_path.stem).with_suffix(".pzzp").write_bytes(pzz_compress(pzzfile_path.read_bytes()))
     elif args.batch_decompress:
         logging.info("### Batch Decompress")
         if(p_output == Path(".")):
