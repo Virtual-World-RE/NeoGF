@@ -48,9 +48,9 @@ If the FD is present we use OS mtime to store the date of the file.
 afstool.py --unpack source_afs.afs optional_dest_folder
 ```
 pack **source_folder** in the default new file _source_folder.afs_.
-If optional_dest_file.afs is specified we unpack in _optional_dest_file.afs_.
+If optional_dest_file.afs is specified we pack in _optional_dest_file.afs_.
 If the FD is present we use OS mtime to retrieve and update the date of the file.
-pack handle max file size using next file (or sys file) offset.
+pack handle max file size using next file (or sys file) offset. Without FD the last file has no max length constraint.
 ```
 afstool.py --pack source_folder optional_dest_file.afs
 ```
