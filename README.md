@@ -13,17 +13,17 @@ If you want more infos about the game, go read our [Gotcha Force Wiki](http://re
 Python3 script for unpack/pack GCM iso files. This tool can rebuild FileStringTable (FST) of GCM and patch boot.bin with a new apploader.img, boot.dol, add/remove/edit of folder and files of the game.
 
 ### User manual
-Unpack iso GCM file **game.iso** in folder **iso_extract**: (If the destination folder is not specified, it will use the game_code-DVD_number as folder.)
+Unpack iso GCM file **game.iso** in folder **iso_unpack**: (If the destination folder is not specified, it will use the game_code-DVD_number as folder.)
 ```
-gcmtool.py --unpack game.iso iso_extract
+gcmtool.py --unpack game.iso iso_unpack
 ```
 Pack folder in iso:
 ```
-gcmtool.py --pack iso_extract game.iso
+gcmtool.py --pack iso_unpack game.iso
 ```
 Rebuild FST and patch boot.bin for a new apploader, dol, and add/remove/edit of folders and files:
 ```
-gcmtool.py --rebuild-fst iso_extract
+gcmtool.py --rebuild-fst iso_unpack
 ```
 Japanese charset is not handled for now except if you have installed Japanese local. The original GCM iso and repack GCM iso are different most of the time. This is because GCM DVD contains "empty spaces" with data unused (old datas or random datas I don't know). So this datas are useless and loss during unpack.
 
