@@ -5,7 +5,7 @@ import shutil
 import logging
 
 
-__version__ = "0.14.7"
+__version__ = "0.14.8"
 __author__ = "rigodron, algoflash, GGLinnk"
 __OriginalAutor__ = "infval"
 __license__ = "MIT"
