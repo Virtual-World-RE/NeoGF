@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 from datetime import datetime
-from pathlib import Path
 import logging
-from math import ceil, floor
+from math import ceil
 import os
+from pathlib import Path
 import re
 import time
 
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -31,7 +31,7 @@ class FilenameResolver:
             self.__resolve_buffer = (self.__sys_path / "filename_resolver.txt").read_text()
             for line in self.__resolve_buffer.split('\n'):
                 name_tuple = line.split(self.__separator)
-                self.__names_tuples[name_tuple[2]] = (int(name_tuple[0]), name_tuple[1])
+                self.__names_tuples[name_tuple[1]] = int(name_tuple[0])
     def save(self):
         if len(self.__resolve_buffer) > 0:
             logging.info("Writting filename_resolver.txt")
@@ -39,24 +39,24 @@ class FilenameResolver:
     # resolve generate a unique filename when unpacking
     def resolve_new(self, fileindex:int, filename:str):
         if filename in self.__names_tuples:
-            if self.__names_tuples[filename][0] == fileindex:
+            if self.__names_tuples[filename] == fileindex:
                 return filename
             i = 1
             new_filename = f"{Path(filename).stem} ({i}){Path(filename).suffix}"
             while new_filename in self.__names_tuples:
-                if self.__names_tuples[new_filename][0] == fileindex:
+                if self.__names_tuples[new_filename] == fileindex:
                     return new_filename
                 i+=1
                 new_filename = f"{Path(filename).stem} ({i}){Path(filename).suffix}"
-            self.__names_tuples[new_filename] = (fileindex, filename)
-            self.__resolve_buffer += f"{fileindex}{self.__separator}{filename}{self.__separator}{new_filename}\n"
+            self.__names_tuples[new_filename] = fileindex
+            self.__resolve_buffer += f"{fileindex}{self.__separator}{new_filename}\n"
             return new_filename
-        self.__names_tuples[filename] = (fileindex, filename)
+        self.__names_tuples[filename] = fileindex
         return filename
     # return generated filename if it exist else filename
     def resolve_from_index(self, fileindex:int, filename:str):
-        for filename_key, name_tuple in self.__names_tuples.items():
-            if name_tuple[0] == fileindex:
+        for filename_key, fileindex_value in self.__names_tuples.items():
+            if fileindex_value == fileindex:
                 return filename_key
         return filename
 
@@ -319,11 +319,11 @@ class Afs:
         dup_names   = "Yes" if len(dup_names_tuples) > 1 else "No"
         empty_space = "Yes" if len(empty_space_tuples) > 1 else "No"
 
-        files_info = f"AFS Magic/Version                : {str(self.__get_magic())[2:-1]}\n"+\
-            f"TOC offset of the FD offset      : 0x{self.__filenamedirectory_offset_offset:x}\n"+\
-            f"Multiple files using same offsets: {dup_offsets}\n"+\
-            f"Multiple files using same name   : {dup_names}\n"+\
-            f"Empty blocks                     : {empty_space}\n"
+        files_info =  f"AFS Magic/Version                : {str(self.__get_magic())[2:-1]}\n"
+        files_info += f"TOC offset of the FD offset      : 0x{self.__filenamedirectory_offset_offset:x}\n" if self.__filenamedirectory else ""
+        files_info += f"Multiple files using same offsets: {dup_offsets}\n"
+        files_info += f"Multiple files using same name   : {dup_names}\n" if self.__filenamedirectory else ""
+        files_info += f"Empty blocks                     : {empty_space}\n"
         self.__print("Global infos and AFS space mapping:", files_map, infos=files_info)
         if dup_offsets_tuples:
             self.__print("Files sharing same AFS offsets:", dup_offsets_tuples)
@@ -374,7 +374,8 @@ class Afs:
             file_len    = self.__get_file_len(i)
             file_date   = datetime.fromtimestamp(self.__get_mtime(i)).strftime("%Y-%m-%d %H:%M:%S") if self.__filenamedirectory else " "*19
             filename    = self.__get_file_name(i) if self.__filenamedirectory else f"{i:08}"
-            files_map.append((f"{i:08x}", f"{file_offset:08x}", f"{file_offset + file_len:08x}", f"{file_len:08x}", file_date, f"{self.__get_file_fdlast(i):08x}", filename))
+            fdlast      = f"{self.__get_file_fdlast(i):08x}" if self.__filenamedirectory else " "*8
+            files_map.append((f"{i:08x}", f"{file_offset:08x}", f"{file_offset + file_len:08x}", f"{file_len:08x}", file_date, fdlast, filename))
 
         if self.__filenamedirectory:
             files_map.append(("SYS FD  ", f"{self.__filenamedirectory_offset:08x}", \
