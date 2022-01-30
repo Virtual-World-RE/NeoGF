@@ -28,7 +28,7 @@ repack_path         = Path("repack")
 
 def test_storage():
     total, used, free = shutil.disk_usage("/")
-    if free - 10**12 < 3 * sum(path.stat().st_size for path in roms_path.glob('*') if path.is_file()):
+    if free - 10**10 < 3 * sum(path.stat().st_size for path in roms_path.glob('*') if path.is_file()):
         raise Exception("Error - Not enought free space on the disk to run tests.")
 
 
