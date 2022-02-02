@@ -83,10 +83,11 @@ files_rebuild_strategy is used to organise files (indexes, offsets, packed name 
 #### \[FilenameDirectory\] section
 **toc_offset_of_fd_offset**: The TOC offset of the FD offset is at the end of the TOC. Some AFS use pad after the offsets/lengths serie. Use auto when it's possible.
 **fd_offset**: The FD is at the end of the AFS. Use auto when it's possible.
-**FD_last_attribute_type**: The type of the last 4 bytes of each FD entries. 3 values are available:
+**FD_last_attribute_type**: The type of the last 4 bytes of each FD entries. 4 values are available:
 * length: Use file length.
 * offset-length: Use offset length series.
 * 0xabcdef: Use a custom hexadecimal constant.
+* unknown: Don't know yet what it represent.
 
 ### afs_rebuild.csv:
 All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto for offsets or indexes when it's possible. Offsets have to be aligned to 0x800 (2048).
