@@ -89,7 +89,7 @@ files_rebuild_strategy is used to organise files (indexes, offsets, packed name 
 
 **fd_offset**: The FD is at the end of the AFS. Use auto when it's possible.
 
-**FD_last_attribute_type**: The type of the last 4 bytes of each FD entries. 4 values are available:
+**fd_last_attribute_type**: The type of the last 4 bytes of each FD entries. 4 values are available:
 * length: Use file length.
 * offset-length: Use offset length series.
 * 0xabcdef: Use a custom hexadecimal constant.
