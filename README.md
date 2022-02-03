@@ -65,10 +65,11 @@ root folder contains all files of the unpacked AFS
 sys folder contains AFS system files of the game and generated files needed for AFS operations:
 * tableofcontent.bin - TOC sys file: You can edit this file it will be handled by the --pack command.
 * filenamedirectory.bin - FD sys file: This file is created only if there is a FD in the AFS.
-* filename_resolver.csv - Created when multiple files have the same name in the FD. New names use "filename (N).ext" format with N:Integer.
+* filename_resolver.csv - Created when multiple files have the same name in the FD.
 * afs_rebuild.conf - Edit this file for rebuilding the AFS.
 * afs_rebuild.csv - Edit this file with correct values set in afs_rebuild.conf for rebuilding the AFS.
-
+### filename_resolver.csv
+When there is a FD, new names use "filename (N).ext" format with N:Integer. Each line contains a couple of "index/unpacked_filename". If there is no FD in the AFS files are named with their index, for instance: "00000002" for the second file. You can use the resolver to rename files using the index like this: "2/my_new_filename.ext". Then during pack afstool.py will auto detect the file and put it at the right index.
 ### afs_rebuild.conf:
 All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto when it's possible.
 #### \[Default\] section
@@ -96,7 +97,7 @@ files_rebuild_strategy is used to organise files (indexes, offsets, packed name 
 * unknown: Don't know yet what it represent.
 
 ### afs_rebuild.csv:
-All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto for offsets or indexes when it's possible. Offsets have to be aligned to 0x800 (2048).
+All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto for offsets or indexes when it's possible. Offsets have to be aligned to 0x800 (2048). filename_resolver.csv will be removed but you can keep changes about filenames by putting them into this file. You have to put "unpacked_filename/index/auto/unpacked_filename" in this file changing index by the right index.
 
 afs_rebuild.csv contains entries describing how to pack files in the AFS.  Put one line per selected file that you wan't to constraint using the format: "unpacked_filename/index/offset/packed_name", for instance: "dummy (5).bin/0x12/0x80000/dummy.bin". You can put auto to index or offset: "dummy (5).bin/auto/auto/dummy.bin". For an empty block add only index/offset couple: "0x12/0x80000" (Not implemented yet). First remove all files without constraints from afs_rebuild.csv. Then put auto in indexes and offsets that doesn't have constraints.
 
