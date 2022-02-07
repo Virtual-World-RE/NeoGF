@@ -104,9 +104,9 @@ files_rebuild_strategy is used to organise files (indexes, offsets, packed name 
 * unknown: Don't know yet what it represent.
 
 ### afs_rebuild.csv:
-All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto for offsets or indexes when it's possible. Offsets have to be aligned to 0x800 (2048). filename_resolver.csv will be removed but you can keep changes about filenames by putting them into this file. You have to put "unpacked_filename/index/auto/packed_filename" in this file changing index by the right index.
+afs_rebuild.csv contains entries describing how to pack files in the AFS. All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto for offsets or indexes when it's possible. Offsets have to be aligned to 0x800 (2048). Put one line per selected file that you wan't to constraint using the format: "unpacked_filename/index/offset/packed_filename", for instance: "dummy (5).bin/0x12/0x80000/dummy.bin". You can put auto to index or offset: "dummy (5).bin/auto/auto/dummy.bin". For an empty block add only offset/length couple with length aligned to 0x800, for instance: "0x80000/0x5000".
 
-afs_rebuild.csv contains entries describing how to pack files in the AFS.  Put one line per selected file that you wan't to constraint using the format: "unpacked_filename/index/offset/packed_name", for instance: "dummy (5).bin/0x12/0x80000/dummy.bin". You can put auto to index or offset: "dummy (5).bin/auto/auto/dummy.bin". For an empty block add only index/offset couple: "0x12/0x80000" (Not implemented yet). First remove all files without constraints from afs_rebuild.csv. Then put auto in indexes and offsets that doesn't have constraints.
+When rebuilding, remove all files without constraints from afs_rebuild.csv. Then put auto in indexes and offsets that doesn't have constraints. While rebuilding the AFS filename_resolver.csv will be removed but you can keep changes about filenames by adding entries with unpacked_filename+index (and packed_filename when there is a FD) into this file.
 
 ## pzztool.py
 Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archive. MDT files are also handled by pzztool.py.
