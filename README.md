@@ -54,6 +54,10 @@ pack handle max file size using next file (or sys file) offset. Without FD the l
 ```
 afstool.py --pack source_folder optional_dest_file.afs
 ```
+Rebuild the AFS file system of an unpacked AFS using afs_rebuild.conf and afs_rebuild.csv. See afs_rebuild.conf below for more informations.
+```
+afstool.py --rebuild source_folder
+```
 Print stats about the AFS file or the unpacked AFS folder. This stats contains informations about FD, offsets ranges and files (and sys files) addresses space, and duplicated filenames grouped by filenames.
 ```
 afstool.py --stats source
