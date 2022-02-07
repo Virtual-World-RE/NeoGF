@@ -9,7 +9,7 @@ import re
 import time
 
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -20,8 +20,6 @@ class AfsInvalidFileLenError(Exception): pass
 class AfsEmptyAfsError(Exception): pass
 class AfsInvalidFilenameDirectoryLengthError(Exception): pass
 class AfsInvalidAfsFolderError(Exception): pass
-
-
 # Tested:
 class AfsInvalidMagicNumberError(Exception): pass
 class AfsInvalidFilesRebuildStrategy(Exception): pass
@@ -38,6 +36,8 @@ class AfsFdOffsetOffsetValueError(Exception): pass
 class AfsFdOffsetValueError(Exception): pass
 class AfsFdLastAttributeTypeValueError(Exception): pass
 class AfsFdOffsetCollisionError(Exception): pass
+class AfsEmptyBlockValueError(Exception): pass
+class AfsEmptyBlockAlignError(Exception): pass
 
 
 class FilenameResolver:
@@ -113,7 +113,7 @@ class Afs:
         return self.__filenamedirectory[fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN:fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+32].split(b"\x00")[0].decode("utf-8")
     def __get_file_fdlast(self, fileindex:int):
         return int.from_bytes(self.__filenamedirectory[fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+44:fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+48], "little")
-    def __get_mtime(self, fileindex:int):
+    def __get_file_mtime(self, fileindex:int):
         mtime_data = self.__filenamedirectory[fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+32:fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+44]
         year   = int.from_bytes(mtime_data[0:2], "little")
         month  = int.from_bytes(mtime_data[2:4], "little")
@@ -122,14 +122,9 @@ class Afs:
         minute = int.from_bytes(mtime_data[8:10], "little")
         second = int.from_bytes(mtime_data[10:12], "little")
         return time.mktime(datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second).timetuple())
-    def __patch_file_len(self, fileindex:int, file_len:int):
-        # Patch file_len in the FD
-        if self.__filenamedirectory:
-            if self.__get_file_len(fileindex) == self.__filenamedirectory[fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+44:fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+48]:
-                self.__filenamedirectory[fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+44:fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+48] = file_len.to_bytes(4, "little")
-        # Patch file_len in the TOC
+    def __patch_file_len(self, fileindex:int, file_len:int): # Patch file_len in the TOC
         self.__tableofcontent[Afs.HEADER_LEN+fileindex*8+4:Afs.HEADER_LEN+fileindex*8+8] = file_len.to_bytes(4, "little")
-    def __patch_mtime(self, fileindex:int, mtime):
+    def __patch_file_mtime(self, fileindex:int, mtime):
         mtime = datetime.fromtimestamp(mtime)
         self.__filenamedirectory[Afs.FILENAMEDIRECTORY_ENTRY_LEN*fileindex+32:Afs.FILENAMEDIRECTORY_ENTRY_LEN*fileindex+44] = \
             mtime.year.to_bytes(2,"little")+ \
@@ -138,9 +133,21 @@ class Afs:
             mtime.hour.to_bytes(2,"little")+ \
             mtime.minute.to_bytes(2,"little")+\
             mtime.second.to_bytes(2,"little")
+    def __patch_fdlasts(self, fileindex:int, fd_last_attribute_type): # Patch FD last attributes according to the type
+        if type(fd_last_attribute_type) == int: # every entry has the same const value
+            self.__filenamedirectory[fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+44:fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+48] = fd_last_attribute_type.to_bytes(4, "little")
+        elif fd_last_attribute_type == "length": # 
+            self.__filenamedirectory[fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+44:fileindex*Afs.FILENAMEDIRECTORY_ENTRY_LEN+48] = self.__get_file_len(fileindex).to_bytes(4, "little")
+        elif fd_last_attribute_type == "offset-length":
+            # every odd index is changed according to the TOC lengths values with the serie: 0->updated_index=1 1->updated_index=3 2->updated_index=5
+            # updated_index = index*2+1 with index*2+1 < self.__file_count
+            updated_fdlast_index = fileindex*2+1
+            if updated_fdlast_index < self.__file_count:
+                self.__filenamedirectory[updated_fdlast_index*Afs.FILENAMEDIRECTORY_ENTRY_LEN+44:updated_fdlast_index*Afs.FILENAMEDIRECTORY_ENTRY_LEN+48] = self.__get_file_len(fileindex).to_bytes(4, "little")
+        # fd_last_attribute_type == unknown
     def __pad(self, data:bytes):
-        if len(data) % self.ALIGN != 0:
-            data += b"\x00" * (self.ALIGN - (len(data) % self.ALIGN))
+        if len(data) % Afs.ALIGN != 0:
+            data += b"\x00" * (Afs.ALIGN - (len(data) % Afs.ALIGN))
         return data
     def __clean_filenamedirectory(self):
         self.__filenamedirectory = None
@@ -194,7 +201,7 @@ class Afs:
 
             # Test if filename is correct by very basic pattern matching
             pattern = re.compile(b"^(?=.{32}$)[^\x00]+\x00+$")
-            for i in range(0, self.__file_count):
+            for i in range(self.__file_count):
                 if not pattern.fullmatch(self.__filenamedirectory[i*Afs.FILENAMEDIRECTORY_ENTRY_LEN:i*Afs.FILENAMEDIRECTORY_ENTRY_LEN+32]):
                     self.__clean_filenamedirectory()
                     return False
@@ -214,7 +221,7 @@ class Afs:
             self.__filenamedirectory_len = self.__get_filenamedirectory_len()
             if self.__filenamedirectory_len != len(self.__filenamedirectory):
                 raise AfsInvalidFilenameDirectoryLengthError("Error - Tableofcontent filenamedirectory length does not match real filenamedirectory length.")
-    def __print(self, title:str, lines_tuples, columns:list = list(range(0,7)), infos:str = ""):
+    def __print(self, title:str, lines_tuples, columns:list = list(range(7)), infos:str = ""):
         stats_buffer = "#"*100+f"\n# {title}\n"+"#"*100+f"\n{infos}|"+"-"*99+"\n"
         if 0 in columns: stats_buffer += "| Index    ";
         if 1 in columns: stats_buffer += "| b offset ";
@@ -228,11 +235,12 @@ class Afs:
             stats_buffer += line if type(line) == str else "| "+" | ".join(line)+"\n"
         print(stats_buffer, end='')
     # end offset not included (0,1) -> len=1
+    # return a list of offsets where files and sys files begin
     def __get_offsets_map(self):
         # offsets_map is used to check next used offset when updating files
         # we also check if there is intersect between files
         offsets_map = [(0, len(self.__tableofcontent))]
-        for i in range(0, self.__file_count):
+        for i in range(self.__file_count):
             file_offset = self.__get_file_offset(i)
             offsets_map.append( (file_offset, file_offset + self.__get_file_len(i)) )
         if self.__filenamedirectory:
@@ -252,10 +260,10 @@ class Afs:
     def __get_formated_map(self):
         files_map = [("SYS TOC ", "00000000", f"{len(self.__tableofcontent):08x}", f"{len(self.__tableofcontent):08x}", "SYS TOC"+' '*12, "SYS TOC ", "SYS TOC")]
 
-        for i in range(0, self.__file_count):
+        for i in range(self.__file_count):
             file_offset = self.__get_file_offset(i)
             file_len    = self.__get_file_len(i)
-            file_date   = datetime.fromtimestamp(self.__get_mtime(i)).strftime("%Y-%m-%d %H:%M:%S") if self.__filenamedirectory else " "*19
+            file_date   = datetime.fromtimestamp(self.__get_file_mtime(i)).strftime("%Y-%m-%d %H:%M:%S") if self.__filenamedirectory else " "*19
             filename    = self.__get_file_name(i) if self.__filenamedirectory else f"{i:08}"
             fdlast      = f"{self.__get_file_fdlast(i):08x}" if self.__filenamedirectory else " "*8
             files_map.append((f"{i:08x}", f"{file_offset:08x}", f"{file_offset + file_len:08x}", f"{file_len:08x}", file_date, fdlast, filename))
@@ -265,13 +273,13 @@ class Afs:
                 f"{self.__filenamedirectory_offset + len(self.__filenamedirectory):08x}", \
                 f"{len(self.__filenamedirectory):08x}", "SYS FD"+' '*13, "SYS FD  ", "SYS FD"))
         return files_map
-    def __get_fd_last_attribute_type(self):
+    def __get_fdlast_type(self):
         # Try to get the type of FD last attribute
         length_type = True
         offset_length_type = True
         constant_type = self.__get_file_fdlast(0)
 
-        for i in range(0, self.__file_count):
+        for i in range(self.__file_count):
             fd_last_attribute = self.__get_file_fdlast(i)
             if fd_last_attribute != self.__get_file_len(i):
                 length_type = None
@@ -282,7 +290,7 @@ class Afs:
         if length_type: return "length"
         if offset_length_type: return "offset-length"
         if constant_type: return f"0x{constant_type:x}"
-        logging.info("unknown FD last attribute type.")
+        logging.info("Unknown FD last attribute type.")
         return "unknown"
     def __write_rebuild_config(self, sys_path:Path, resolver:FilenameResolver):
         config = ConfigParser(allow_no_value=True) # allow_no_value to allow adding comments
@@ -296,12 +304,12 @@ class Afs:
             config.add_section("FilenameDirectory")
             config.set("FilenameDirectory", "toc_offset_of_fd_offset", f"0x{self.__filenamedirectory_offset_offset:x}")
             config.set("FilenameDirectory", "fd_offset", f"0x{self.__filenamedirectory_offset:x}")
-            config.set("FilenameDirectory", "fd_last_attribute_type", self.__get_fd_last_attribute_type())
+            config.set("FilenameDirectory", "fd_last_attribute_type", self.__get_fdlast_type())
         config.write((sys_path / "afs_rebuild.conf").open("w"))
 
         rebuild_csv = ""
         # generate and save afs_rebuild.csv
-        for i in range(0, self.__file_count):
+        for i in range(self.__file_count):
             filename = self.__get_file_name(i) if self.__filenamedirectory else f"{i:08}"
             unpacked_filename = resolver.resolve_from_index(i, filename) if self.__filenamedirectory else f"{i:08}"
             rebuild_csv += f"{unpacked_filename}/0x{i:x}/0x{self.__get_file_offset(i):x}/{filename}\n"
@@ -327,7 +335,7 @@ class Afs:
             (sys_path / "tableofcontent.bin").write_bytes(self.__tableofcontent)
 
             logging.info(f"Extracting {self.__file_count} files.")
-            for i in range(0, self.__file_count):
+            for i in range(self.__file_count):
                 file_offset = self.__get_file_offset(i)
                 file_len    = self.__get_file_len(i)
                 filename    = resolver.resolve_new(i, self.__get_file_name(i)) if self.__filenamedirectory else f"{i:08}"
@@ -337,7 +345,7 @@ class Afs:
                 (root_path / filename).write_bytes(afs_file.read(file_len))
 
                 if self.__filenamedirectory:
-                    mtime = self.__get_mtime(i)
+                    mtime = self.__get_file_mtime(i)
                     os.utime(root_path / filename, (mtime, mtime))
 
             if self.__filenamedirectory:
@@ -353,34 +361,37 @@ class Afs:
         root_path = folder_path / "root"
 
         self.__loadsys_from_folder(sys_path)
-
         resolver = FilenameResolver(sys_path)
-
         offsets_map = self.__get_offsets_map()
+
+        if self.__filenamedirectory:
+            fd_last_attribute_type = self.__get_fdlast_type()
+            if fd_last_attribute_type[:2] == "0x":
+                fd_last_attribute_type = int(fd_last_attribute_type, 16)
+
         with afs_path.open("wb") as afs_file:
             # We update files
-            for i in range(0, self.__file_count):
+            for i in range(self.__file_count):
                 file_offset = self.__get_file_offset(i)
                 file_len    = self.__get_file_len(i)
-                filename    = self.__get_file_name(i) if self.__filenamedirectory else f"{i:08}"
-                filename    = resolver.resolve_from_index(i, filename)
+                filename    = resolver.resolve_from_index(i, self.__get_file_name(i) if self.__filenamedirectory else f"{i:08}")
 
                 file_path = root_path / filename
                 new_file_len = file_path.stat().st_size
                 
                 if new_file_len != file_len:
-                    next_offset = None
                     # If no FD, we can raise AFS length without constraint
                     if offsets_map.index(file_offset) + 1 < len(offsets_map):
                         next_offset = offsets_map[offsets_map.index(file_offset)+1]
-                    if next_offset:
                         if file_offset + new_file_len > next_offset:
                             raise AfsInvalidFileLenError(f"File {file_path} as a new file_len (0x{new_file_len:x}) > next file offset (0x{next_offset:x}). "\
                                 "This means that we have to rebuild the AFS using -r and changing offset of all next files and this could lead to bugs if the main dol use AFS relative file offsets.")
                     self.__patch_file_len(i, new_file_len)
+                    if self.__filenamedirectory:
+                        self.__patch_fdlasts(i, fd_last_attribute_type)
                 # If there is a filenamedirectory we update mtime:
                 if self.__filenamedirectory:
-                    self.__patch_mtime(i, round(file_path.stat().st_mtime))
+                    self.__patch_file_mtime(i, round(file_path.stat().st_mtime))
                 logging.debug(f"Packing {file_path} 0x{file_offset:x}:0x{file_offset+new_file_len:x} in AFS.")
                 afs_file.seek(file_offset)
                 afs_file.write(self.__pad(file_path.read_bytes()))
@@ -437,6 +448,7 @@ class Afs:
 
         csv_files_lists = []
         reserved_indexes = []
+        empty_blocks_list = []
 
         # We parse the file csv and verify entries retrieving length for files
         if (sys_path / "afs_rebuild.csv").is_file():
@@ -444,7 +456,6 @@ class Afs:
                 line_splited = line.split('/')
                 if len(line_splited) == 4:
                     unpacked_filename = line_splited[0]
-
                     index = None
                     if files_rebuild_strategy in ["index", "mixed"]:
                         if line_splited[1] != "auto":
@@ -477,7 +488,13 @@ class Afs:
 
                     files_paths.remove( root_path / unpacked_filename )
                 elif len(line_splited) == 2: # empty block
-                    raise Exception(f"Error - Empty blocks not implemented yet in afs_rebuild.csv: \"{line}\"")
+                    if line_splited[0][:2] != "0x" or line_splited[1][:2] != "0x" or len(line_splited[0]) < 3 or len(line_splited[1]) < 3:
+                        raise AfsEmptyBlockValueError(f"Error - Invalid empty block values: \"{line}\"")
+                    offset = int(line_splited[0][2:], 16)
+                    length = int(line_splited[1][2:], 16)
+                    if offset % Afs.ALIGN > 0 or length % Afs.ALIGN > 0:
+                        raise AfsEmptyBlockAlignError(f"Error - Invalid empty block offset or length in afs_rebuild.csv: \"{line}\" - offset and length must be aligned to 0x800.")
+                    empty_blocks_list.append([None, None, offset, None, length])
                 else:
                     raise AfsInvalidFieldsCountError(f"Error - Invalid entry fields count in afs_rebuild.csv: \"{line}\"")
 
@@ -485,28 +502,25 @@ class Afs:
         # available_space_ranges is then used to put files that have an adapted length
         # max_offset is used here to find memory collisions between files and next available space
         available_space_ranges = []
+        tmp_ranges = empty_blocks_list
         if files_rebuild_strategy in ["offset", "mixed"]:
-            # We have to sort offsets before merging to avoid complex algorithm
-            # TOC is already present to begin
-            for file_tuple in sorted(csv_files_lists, key=lambda x: (x[2] is not None, x[2])):
-                offset = file_tuple[2]
-                if offset is None:
-                    continue
-                if offset < max_offset:
-                    raise AfsOffsetCollisionError(f"Error - Offsets collision with offset \"0x{offset:x}\".")
-                elif offset > max_offset:
-                    available_space_ranges.append( [max_offset, offset] )
-                max_offset = int(ceil((offset + file_tuple[4]) / Afs.ALIGN)) * Afs.ALIGN
+            tmp_ranges += csv_files_lists
+
+        # We have to sort offsets before merging to avoid complex algorithm
+        # TOC is already present with max_offset
+        for file_tuple in sorted(tmp_ranges, key=lambda x: (x[2] is not None, x[2])):
+            offset = file_tuple[2]
+            if offset is None:
+                continue
+            if offset < max_offset:
+                raise AfsOffsetCollisionError(f"Error - Offsets collision with offset \"0x{offset:x}\".")
+            elif offset > max_offset:
+                available_space_ranges.append( [max_offset, offset] )
+            max_offset = int(ceil((offset + file_tuple[4]) / Afs.ALIGN)) * Afs.ALIGN
 
         for file_path in files_paths:
             csv_files_lists.append( [file_path.name, None, None, file_path.name, file_path.stat().st_size] )
 
-        # Now csv_files_lists contains all files for sys rebuild
-        # "auto"   -> csv_files_lists -> index & offsets is None
-        # "index"  -> csv_files_lists -> offsets is None
-        # "offset" -> csv_files_lists -> index is None  -> available_space_ranges to allocate file address space
-        # "mixed"  -> have to consider offsets & indexes -> available_space_ranges to allocate file address space
-        
         # sort by filename
         csv_files_lists.sort(key=lambda x: x[3])
         current_offset = max_offset
@@ -514,7 +528,7 @@ class Afs:
         # if index==None -> Assign an index not in reserved_indexes
         reserved_indexes.sort()
         next_index = 0
-        for i in range(0, len(csv_files_lists)):
+        for i in range(len(csv_files_lists)):
             if csv_files_lists[i][1] is None and files_rebuild_strategy in ["index", "mixed"] or files_rebuild_strategy in ["auto", "offset"]:
                 for j in range(next_index, len(csv_files_lists)):
                     if j not in reserved_indexes:
@@ -525,10 +539,10 @@ class Afs:
         csv_files_lists.sort(key=lambda x: x[1])
 
         # if offset==None -> Assign an offset in available_space_ranges or at the end of file allocated space
-        for i in range(0, len(csv_files_lists)):
+        for i in range(len(csv_files_lists)):
             if files_rebuild_strategy in ["offset", "mixed"] and csv_files_lists[i][2] is None or files_rebuild_strategy in ["auto", "index"]:
                 block_len = int(ceil(csv_files_lists[i][4] / Afs.ALIGN)) * Afs.ALIGN
-                for j in range(0, len(available_space_ranges)):
+                for j in range(len(available_space_ranges)):
                     available_block_len = int(ceil((available_space_ranges[j][1] - available_space_ranges[j][0]) / Afs.ALIGN)) * Afs.ALIGN
                     if block_len <= available_block_len:
                         csv_files_lists[i][2] = available_space_ranges[j][0]
@@ -551,7 +565,7 @@ class Afs:
         # Have to be sorted by index
         # current_offset contains now fd offset if not already set
         resolver = FilenameResolver(sys_path)
-        for i in range(0, len(csv_files_lists)):
+        for i in range(len(csv_files_lists)):
             self.__tableofcontent += csv_files_lists[i][2].to_bytes(4, "little") + csv_files_lists[i][4].to_bytes(4, "little")
             # unpacked_filename, index, offset, filename, file_length
             if self.__filenamedirectory_offset_offset:
