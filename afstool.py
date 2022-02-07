@@ -9,7 +9,7 @@ import re
 import time
 
 
-__version__ = "0.0.5"
+__version__ = "0.1.0"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
