@@ -8,7 +8,8 @@ import shutil
 from time import time
 from datetime import datetime
 
-__version__ = "0.0.6"
+
+__version__ = "0.0.7"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -44,7 +45,7 @@ class AfsTest(afstool.Afs):
         resolver = afstool.FilenameResolver(sys_path)
 
         offsets_names_map = [(0, "SYS TOC")]
-        for i in range(0, self._Afs__file_count):
+        for i in range(self._Afs__file_count):
             filename = resolver.resolve_from_index(i, self._Afs__get_file_name(i)) if self._Afs__filenamedirectory else f"{i:08}"
             offsets_names_map.append( (self._Afs__get_file_offset(i), filename) )
         if self._Afs__filenamedirectory:
@@ -128,7 +129,7 @@ def patch_all_bytes(file_path:Path, max_len:int = None):
         max_len = len(file_data)
     elif max_len < len(file_data):
         file_data = file_data[:max_len]
-    for i in range(0, len(file_data)):
+    for i in range(len(file_data)):
         file_data[i] = (file_data[i] + 1) % 255
     if max_len > len(file_data):
         file_data.extend(b"\x01"*(max_len - len(file_data)))
@@ -146,7 +147,7 @@ def patch_unpackedfiles_in_folder(folder_path:Path, bool_len:bool = False):
         for file_path in afsfolder_path.glob("root/*"):
             max_len = None
             # Search by resolved name and get begin offset of next file / SYS File
-            for i in range(0, len(offsets_names_map)):
+            for i in range(len(offsets_names_map)):
                 if offsets_names_map[i][1] == file_path.name:
                     if i+1 < len(offsets_names_map):
                         max_len = offsets_names_map[i+1][0] - offsets_names_map[i][0]
@@ -213,7 +214,7 @@ def mk_rebuild_filesys(unpacked_path:Path, files:list, afs_rebuild_conf:dict, af
 def test_except(afs_rebuild_conf:dict, exception, rebuild_csv_data=""):
     global i
     i += 1
-    rebuild_path = unpack_path / f"rebuild_{i:02}"
+    rebuild_path = unpack_path / f"rebuild_{i:03}"
     mk_rebuild_filesys(rebuild_path, [("a.bin", 0x500),("b.bin", 0x600),("c.bin", 0x700)], afs_rebuild_conf, rebuild_csv_data)
     a = afstool.Afs()
     try:
@@ -226,7 +227,7 @@ def test_except(afs_rebuild_conf:dict, exception, rebuild_csv_data=""):
 def test_rebuild_repack(afs_rebuild_conf:dict, files:list, raw_data:bytes, rebuild_csv_data:str = "", raw_fd_data:bytes = None):
     global i
     i += 1
-    rebuild_path = unpack_path / f"rebuild_{i:02}"
+    rebuild_path = unpack_path / f"rebuild_{i:03}"
     mk_rebuild_filesys(rebuild_path, files, afs_rebuild_conf, rebuild_csv_data)
 
     rebuilded_repack_path = repack_path / Path(rebuild_path.stem).with_suffix(".afs")
@@ -241,6 +242,7 @@ def test_rebuild_repack(afs_rebuild_conf:dict, files:list, raw_data:bytes, rebui
                 mtime.hour.to_bytes(2,"little")+mtime.minute.to_bytes(2,"little")+mtime.second.to_bytes(2,"little")
         raw_data += raw_fd_data.ljust(0x800, b"\x00")
     a.pack(rebuild_path, rebuilded_repack_path)
+    Path("tmp.afs").write_bytes(raw_data)
     if rebuilded_repack_path.read_bytes() != raw_data:
         raise Exception(f"Error - Not the expected repack {rebuilded_repack_path}.")
     print(f"Success - {rebuild_path}.")
@@ -397,7 +399,6 @@ for afs_path in afss_path.glob("*"):
 for folder_path in unpack_path.glob("*"):
     afstool_rebuild(folder_path)
 
-
 config = ConfigParser()
 # pack unpack_path repack_path
 for folder_path in unpack_path.glob("*"):
@@ -459,7 +460,6 @@ for afs_rebuild_conf in [afs_rebuild_conf1, afs_rebuild_conf2]:
     test_except(afs_rebuild_conf, afstool.AfsInvalidFilesRebuildStrategy)
     afs_rebuild_conf["Default"]["files_rebuild_strategy"] = "auto"
 
-
     test_except(afs_rebuild_conf, afstool.AfsInvalidFilePathError, "d.bin/0x1/0x1000/d.bin")
     test_except(afs_rebuild_conf, afstool.AfsInvalidFieldsCountError, "b.bin/0x1/0x1000/b.bin/d")
     for tmp_conf in ["index", "mixed"]:
@@ -473,6 +473,13 @@ for afs_rebuild_conf in [afs_rebuild_conf1, afs_rebuild_conf2]:
         test_except(afs_rebuild_conf, afstool.AfsOffsetValueError, "b.bin/0x1/123/b.bin")
         test_except(afs_rebuild_conf, afstool.AfsOffsetAlignError, "b.bin/0x1/0x555/b.bin")
         test_except(afs_rebuild_conf, afstool.AfsOffsetCollisionError, "b.bin/0x1/0x8000/b.bin\nc.bin/0x2/0x8000/c.bin")
+
+    for tmp_conf in ["auto", "index", "offset", "mixed"]:
+        afs_rebuild_conf["Default"]["files_rebuild_strategy"] = tmp_conf
+        test_except(afs_rebuild_conf, afstool.AfsEmptyBlockValueError, "123/0x800")
+        test_except(afs_rebuild_conf, afstool.AfsEmptyBlockValueError, "0x800/123")
+        test_except(afs_rebuild_conf, afstool.AfsEmptyBlockAlignError, "0x800/0x7ff")
+        test_except(afs_rebuild_conf, afstool.AfsEmptyBlockAlignError, "0x7ff/0x800")
 
 afs_rebuild_conf1["Default"]["files_rebuild_strategy"] = "auto"
 afs_rebuild_conf2["Default"]["files_rebuild_strategy"] = "auto"
@@ -498,7 +505,7 @@ print("#########################################################################
 print(f"# TEST 10/{TEST_COUNT}")
 print("# Testing rebuild - (afs_rebuild.conf & afs_rebuild.csv).")
 print("###############################################################################")
-tmp_count = 9
+tmp_count = 10
 raw_data = tmp_count * [None]
 raw_header_data = tmp_count * [None]
 raw_fd_header = tmp_count * [None]
@@ -552,6 +559,11 @@ raw_header_data[8] = b"\x41\x46\x53\x00"+list_bytes([0x3, 0x1000, 0x601, 0x800, 
 raw_fd_header[8]   = list_bytes([0x2000, 0x90])
 raw_files_data[8]  = (b"\xff"*0x702).ljust(0x800, b"\x00") + (b"\xff"*0x601).ljust(0x800, b"\x00") + (b"\xff"*0x500).ljust(0x800, b"\x00")
 raw_fd_data[8]     = raw_fd_data[2]
+# toc: abc - content: abc empty_blocks : 0x800 -> 0x2800 a 0x3000 -> 0x6000 b 0x7000 -> 0x8800 c
+raw_header_data[9] = b"\x41\x46\x53\x00"+list_bytes([0x3, 0x2800, 0x601, 0x6000, 0x702, 0x8800, 0x803])
+raw_fd_header[9]   = list_bytes([0x9800, 0x90])
+raw_files_data[9]  = b"\x00"*0x2000+(b"\xff"*0x601).ljust(0x800, b"\x00") + b"\x00"*0x3000 + (b"\xff"*0x702).ljust(0x800, b"\x00") + b"\x00"*0x2000 + (b"\xff"*0x803).ljust(0x1000, b"\x00")
+raw_fd_data[9]     = raw_fd_data[3]
 
 afs_rebuild_conf3 = copy.deepcopy(afs_rebuild_conf2)
 afs_rebuild_conf3["FilenameDirectory"]["toc_offset_of_fd_offset"] = "0x500"
@@ -559,7 +571,7 @@ afs_rebuild_conf4 = copy.deepcopy(afs_rebuild_conf2)
 afs_rebuild_conf4["FilenameDirectory"]["toc_offset_of_fd_offset"] = "0x7f8"
 
 for afs_rebuild_conf in [afs_rebuild_conf1, afs_rebuild_conf2, afs_rebuild_conf3, afs_rebuild_conf4]:
-    for j in range(0, len(raw_data)):
+    for j in range(len(raw_data)):
         raw_data[j] = raw_header_data[j]
         if afs_rebuild_conf["Default"]["filename_directory"] == "True":
             pad_len = int(afs_rebuild_conf["FilenameDirectory"]["toc_offset_of_fd_offset"][2:], 16) if afs_rebuild_conf["FilenameDirectory"]["toc_offset_of_fd_offset"] != "auto" else 0
@@ -571,7 +583,7 @@ for afs_rebuild_conf in [afs_rebuild_conf1, afs_rebuild_conf2, afs_rebuild_conf3
     afs_rebuild_conf["Default"]["AFS_MAGIC"] = "0x41465300"
     test_rebuild_repack(afs_rebuild_conf, [("00000000", 0x800)], raw_data[1], raw_fd_data=raw_fd_data[1])
 
-    for tmp_conf in ["mixed", "index"]:
+    for tmp_conf in ["index", "mixed"]:
         afs_rebuild_conf["Default"]["files_rebuild_strategy"] = tmp_conf
         test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x500),("b.bin", 0x600),("c.bin", 0x700)], raw_data[2], "b.bin/0x0/auto/b.bin", raw_fd_data=raw_fd_data[2])
     for tmp_conf in ["offset", "mixed"]:
@@ -585,6 +597,9 @@ for afs_rebuild_conf in [afs_rebuild_conf1, afs_rebuild_conf2, afs_rebuild_conf3
     test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x902),("b.bin", 0x1901),("c.bin", 0x700)], raw_data[7], "c.bin/0x0/0x3800/c.bin\nb.bin/0x1/auto/b.bin\na.bin/0x2/auto/a.bin", raw_fd_data=raw_fd_data[7])
     test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x702),("b.bin",  0x601),("c.bin", 0x500)], raw_data[8], "c.bin/auto/0x1800/c.bin\nb.bin/auto/0x1000/b.bin\na.bin/0x1/0x800/a.bin", raw_fd_data=raw_fd_data[8])
 
+    for tmp_conf in ["auto", "index", "offset", "mixed"]:
+        afs_rebuild_conf["Default"]["files_rebuild_strategy"] = tmp_conf
+        test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x601),("b.bin",  0x702),("c.bin", 0x803)], raw_data[9], "0x800/0x2000\n0x3000/0x3000\n0x7000/0x1800", raw_fd_data=raw_fd_data[9])
 
 print("###############################################################################")
 print("# Cleaning test folders.")
