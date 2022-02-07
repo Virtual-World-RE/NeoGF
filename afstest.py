@@ -242,7 +242,6 @@ def test_rebuild_repack(afs_rebuild_conf:dict, files:list, raw_data:bytes, rebui
                 mtime.hour.to_bytes(2,"little")+mtime.minute.to_bytes(2,"little")+mtime.second.to_bytes(2,"little")
         raw_data += raw_fd_data.ljust(0x800, b"\x00")
     a.pack(rebuild_path, rebuilded_repack_path)
-    Path("tmp.afs").write_bytes(raw_data)
     if rebuilded_repack_path.read_bytes() != raw_data:
         raise Exception(f"Error - Not the expected repack {rebuilded_repack_path}.")
     print(f"Success - {rebuild_path}.")
