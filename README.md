@@ -88,7 +88,7 @@ files_rebuild_strategy is used to organise files (indexes, offsets, packed name 
 * auto: Rebuild all files indexes and offsets with packed packed_filename if there is a FD or else unpacked_filename. afs_rebuild.csv indexes and offsets will be ignored.
 * index: Keep the specified index for designated files. afs_rebuild.csv offsets will be ignored.
 * offset: Keep the specified offset for designated files. afs_rebuild.csv indexes will be ignored.
-* mixed: Keep the specified offset or index for afs_rebuild.csv entries where a value is specified.
+* mixed: Keep the specified offset and index for afs_rebuild.csv entries where a value is specified.
 
 **filename_directory**: True when there is a FD and False when there is none. If set to True then it must have a \[FilenameDirectory\] section.
 
