@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 from pathlib import Path
+from struct import unpack
+from enum import IntFlag
 
-__version__ = "0.0.0"
+__version__ = "0.0.1"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -9,6 +11,191 @@ __status__ = "developpement"
 
 class HSDModelEmptyFileError(Exception) : pass
 class HSDModelInvalidModelHeaderError(Exception) : pass
+
+
+# new
+class ProjectionTypeEnum(IntFlag):
+    PERSPECTIVE = 1
+    FRUSTRUM = 2
+    ORTHO = 3
+
+
+class LObjFlagsEnum(IntFlag):
+    AMBIANT = 0
+    INFINITE = 1
+    POINT = 2
+    SPOT = 3
+    DIFFUSE = 4
+    SPECULAR = 8
+    ALPHA = 16
+    HIDDEN = 32
+    RAW_PARAM = 64
+    DIFF_DIRTY = 128
+    SPEC_DIRTY = 256
+
+
+class LObjAttenuationFlagsEnum(IntFlag):
+    LIGHT_ATTN_NONE = 0
+    LIGHT_ATTN = 1
+
+
+class JObjFlagsEnum(IntFlag):
+    NULL = 0
+    SKELETON = 1
+    SKELETON_ROOT = 2
+    ENVELOPE_MODEL = 4
+    CLASSICAL_SCALING = 8
+    HIDDEN = 0x10
+    PTCL = 0x20
+    MTX_DIRTY = 0x40
+    LIGHTING = 0x80
+    TEXGEN = 0x100
+    BILLBOARD = 0x200
+    VBILLBOARD = 0x400
+    HBILLBOARD = 0x600
+    RBILLBOARD = 0x800
+    INSTANCE = 0x1000
+    PBILLBOARD = 0x2000
+    SPLINE = 0x4000
+    FLIP_IK = 0x8000
+    SPECULAR = 0x10000
+    USE_QUATERNION = 0x20000
+    OPA = 0x40000
+    XLU = 0x80000
+    TEXEDGE = 0x100000
+    JOINT1 = 0x200000
+    JOINT2 = 0x400000
+    EFFECTOR = 0x600000
+    USER_DEFINED_MTX = 0x800000
+    MTX_INDEPEND_PARENT = 0x1000000
+    MTX_INDEPEND_SRT = 0x2000000
+    MTX_SCALE_COMPENSATE = 0x4000000
+    ROOT_OPA = 0x10000000
+    ROOT_XLU = 0x20000000
+    ROOT_TEXEDGE = 0x40000000
+
+
+class RenderFlagsEnum(IntFlag):
+    USER = 0x80000000
+    CONSTANT = 1
+    VERTEX = 2
+    BOTH = 3
+    DIFFUSE = 4
+    SPECULAR = 8
+    TEX0 = 0x10
+    TEX1 = 0x20
+    TEX2 = 0x40
+    TEX3 = 0x80
+    TEX4 = 0x100
+    TEX5 = 0x200
+    TEX6 = 0x400
+    TEX7 = 0x800
+    TOON = 0x1000
+    ALPHA_MAT = 0x2000
+    ALPHA_VTX = 0x4000
+    ALPHA_BOTH = 0x6000
+    ZOFST = 0x1000000
+    EFFECT = 0x2000000
+    SHADOW = 0x4000000
+    ZMODE_ALWAYS = 0x8000000
+    DF_ALL = 0x10000000
+    NO_ZUPDATE = 0x20000000
+    XLU = 0x40000000
+
+
+class GXTexGenSrcEnum(IntFlag):
+    GX_TEXMAP0 = 0x0
+    GX_TEXMAP1 = 0x1
+    GX_TEXMAP2 = 0x2
+    GX_TEXMAP3 = 0x3
+    GX_TEXMAP4 = 0x4
+    GX_TEXMAP5 = 0x5
+    GX_TEXMAP6 = 0x6
+    GX_TEXMAP7 = 0x7
+    GX_MAX_TEXMAP = 0x8
+    GX_TEXMAP_NULL = 0x9
+    GX_TEXMAP_DISABLE = 0xA
+
+
+class TexMapIdEnum(IntFlag):
+    GX_TG_POS = 0x0
+    GX_TG_NRM = 0x1
+    GX_TG_BINRM = 0x2
+    GX_TG_TANGENT = 0x3
+    GX_TG_TEX0 = 0x4
+    GX_TG_TEX1 = 0x5
+    GX_TG_TEX2 = 0x6
+    GX_TG_TEX3 = 0x7
+    GX_TG_TEX4 = 0x8
+    GX_TG_TEX5 = 0x9
+    GX_TG_TEX6 = 0xA
+    GX_TG_TEX7 = 0xB
+    GX_TG_TEXCOORD0 = 0xC
+    GX_TG_TEXCOORD1 = 0xD
+    GX_TG_TEXCOORD2 = 0xE
+    GX_TG_TEXCOORD3 = 0xF
+    GX_TG_TEXCOORD4 = 0x10
+    GX_TG_TEXCOORD5 = 0x11
+    GX_TG_TEXCOORD6 = 0x12
+    GX_TG_COLOR0 = 0x13
+    GX_TG_COLOR1 = 0x14
+
+
+class AlphaOperationEnum(IntFlag):
+    NONE = 0x00
+    ALPHAMASK = 0x10
+    BLEND = 0x20
+    MODULATE = 0x30
+    REPLACE = 0x40
+    PASS = 0x50
+    ADD = 0x60
+    SUB = 0x70
+
+
+class ColorOperationEnum(IntFlag):
+    NONE = 0
+    ALPHA_MASK = 1
+    RGB_MASK = 2
+    BLEND = 3
+    MODULATE = 4
+    REPLACE = 5
+    PASS = 6
+    ADD = 7
+    SUB = 8
+
+
+class CoordTypeEnum(IntFlag):
+    UV = 0
+    REFLECTION = 1
+    HILIGHT = 2
+    SHADOW = 3
+    TOON = 4
+    GRADATION = 5
+
+
+class MagFilterEnum(IntFlag):
+    GX_NEAR = 0
+    GX_LINEAR = 1
+    GX_NEAR_MIP_NEAR = 2
+    GX_LIN_MIP_NEAR = 3
+    GX_NEAR_MIP_LIN = 4
+    GX_LIN_MIP_LIN = 5
+
+
+class WrapEnum(IntFlag):
+    CLAMP = 0
+    REPEAT = 1
+    MIRROR = 2
+
+
+class PObjFlagsEnum(IntFlag):
+    UNKNOWN0 = 1
+    UNKNOWN1 = 2
+    ANIM = 8
+    SHAPE_ANIM = 0x1000
+    ENVELOPE = 0x2000
+    CULLBACK = 0x4000
+    CULLFRONT = 0x8000
 
 
 class HSDNode:
@@ -138,6 +325,93 @@ class DObj:
     def set_pobj(self, pobj:PObj):      self.__pobj = pobj
 
 
+class LObj:
+    SERIALIZED_LEN = 0x1c
+    __class_name = None # ??
+    __next_offset = None
+    __flags = None # LObjFlagsEnum
+    __attenuation_flags = None # LObjAttenuationFlagsEnum
+    __color_r = None
+    __color_g = None
+    __color_b = None
+    __color_alpha = None
+    __lobj_point_offset = None
+    __infinite_data = None
+    __point_spot_data = None
+    def __init__(self, datas:bytes):
+        if len(datas) != LObj.SERIALIZED_LEN:
+            raise Exception(f"Invalid data length in LObj constructor: {len(datas)}")
+        self.__class_name =        int.from_bytes(datas[:4], "big")
+        self.__next_offset =       int.from_bytes(datas[4:8], "big")
+        self.__flags =             int.from_bytes(datas[8:10], "big")
+        self.__attenuation_flags = int.from_bytes(datas[10:12], "big")
+        self.__color_r =           int.from_bytes(datas[12:13], "big")
+        self.__color_g =           int.from_bytes(datas[13:14], "big")
+        self.__color_b =           int.from_bytes(datas[14:15], "big")
+        self.__color_alpha =       int.from_bytes(datas[15:16], "big")
+        self.__lobj_point_offset = int.from_bytes(datas[16:20], "big")
+        self.__infinite_data =     int.from_bytes(datas[20:24], "big")
+        self.__point_spot_data =   int.from_bytes(datas[24:28], "big")
+
+
+# new
+class WObj:
+    SERIALIZED_LEN = 0x14
+    __unknown0 = None
+    __v1 = None
+    __v2 = None
+    __v3 = None
+    __unknown1 = None
+    def __init__(self, datas:bytes):
+        if len(datas) != WObj.SERIALIZED_LEN:
+            raise Exception(f"Invalid data length in WObj constructor: {len(datas)}")
+        self.__unknown0 = int.from_bytes(datas[:4], "big")
+        self.__v1 = unpack(">f", datas[4:8])
+        self.__v2 = unpack(">f", datas[8:12])
+        self.__v3 = unpack(">f", datas[12:16])
+        self.__unknown1 = int.from_bytes(datas[16:20], "big")
+
+
+# new
+class CObj:
+    SERIALIZED_LEN = 0x38
+    __flags = None
+    __projection_type = None
+    __viewport_left = None
+    __viewport_right = None
+    __viewport_top = None
+    __viewport_bottom = None
+    __proj_width = None
+    __proj_height = None
+    __eye_offset = None # WObj
+    __target_offset = None # WObj
+    __roll = None
+    __unknown = None
+    __near_clip = None # float
+    __far_clip = None # float
+    __field_of_view = None # float
+    __aspect = None # float
+    def __init__(self, datas:bytes):
+        if len(datas) != CObj.SERIALIZED_LEN:
+            raise Exception(f"Invalid data length in CObj constructor: {len(datas)}")
+        self.__flags           = int.from_bytes(datas[:4], "big")
+        self.__projection_type = int.from_bytes(datas[4:8], "big")
+        self.__viewport_left   = int.from_bytes(datas[8:10], "big")
+        self.__viewport_right  = int.from_bytes(datas[10:12], "big")
+        self.__viewport_top    = int.from_bytes(datas[12:14], "big")
+        self.__viewport_bottom = int.from_bytes(datas[14:16], "big")
+        self.__proj_width      = int.from_bytes(datas[16:20], "big")
+        self.__proj_height     = int.from_bytes(datas[20:24], "big")
+        self.__eye_offset      = int.from_bytes(datas[24:28], "big")
+        self.__target_offset   = int.from_bytes(datas[28:32], "big")
+        self.__roll            = int.from_bytes(datas[32:36], "big")
+        self.__unknown         = int.from_bytes(datas[36:40], "big")
+        self.__near_clip       = unpack(">f", datas[40:44])
+        self.__far_clip        = unpack(">f", datas[44:48])
+        self.__field_of_view   = unpack(">f", datas[48:52])
+        self.__aspect          = unpack(">f", datas[52:56])
+
+
 class JObj:#(HSDNode):
     SERIALIZED_LEN = 0x40
     __unknown = None
@@ -161,17 +435,17 @@ class JObj:#(HSDNode):
         self.__next_offset  = int.from_bytes(datas[12:16], "big")
         self.__dobj_offset  = int.from_bytes(datas[16:20], "big")
         self.__rotation     = Rotation(
-            int.from_bytes(datas[20:24], "big"),
-            int.from_bytes(datas[24:28], "big"),
-            int.from_bytes(datas[28:32], "big"))
+            unpack(">f", datas[20:24]),
+            unpack(">f", datas[24:28]),
+            unpack(">f", datas[28:32]))
         self.__scale        = Scale(
-            int.from_bytes(datas[32:36], "big"),
-            int.from_bytes(datas[40:44], "big"),
-            int.from_bytes(datas[44:48], "big"))
+            unpack(">f", datas[32:36]),
+            unpack(">f", datas[40:44]),
+            unpack(">f", datas[44:48]))
         self.__translation  = Translation(
-            int.from_bytes(datas[48:52], "big"),
-            int.from_bytes(datas[52:56], "big"),
-            int.from_bytes(datas[56:60], "big"))
+            unpack(">f", datas[48:52]),
+            unpack(">f", datas[52:56]),
+            unpack(">f", datas[56:60]))
     def __str__(self, depth:int):
         buffer_str = f"{'  '*depth + '|-'}JObj:{self.__unknown:08x}:{self.__flags:08x}:{self.__child_offset:08x}:{self.__next_offset:08x}:{self.__dobj_offset:08x}\n"
         if self.has_child():
