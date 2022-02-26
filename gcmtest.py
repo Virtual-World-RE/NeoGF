@@ -5,7 +5,7 @@ import shutil
 from time import time
 
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -105,9 +105,12 @@ def gcmtool_pack(folder_path:Path, iso_path:Path):
 def gcmtool_rebuild_fst(folder_path:Path):
     if os.system(f"python gcmtool.py -r \"{folder_path}\"") != 0:
         raise Exception("Error while rebuilding FST.")
+def gcmtool_stats(path:Path):
+    if os.system(f"python gcmtool.py -s \"{path}\" > NUL") != 0:
+        raise Exception("Error while getting stats.")
 
 
-TEST_COUNT = 3
+TEST_COUNT = 4
 
 start = time()
 print("###############################################################################")
@@ -135,6 +138,18 @@ for folder_path in unpack_path.glob("*"):
 
 print("###############################################################################")
 print(f"# TEST 2/{TEST_COUNT}")
+print("# Testing stats on folders & isos")
+print("###############################################################################")
+
+for iso_path in roms_path.glob("*"):
+    if iso_path.is_file():
+        gcmtool_stats(iso_path)
+
+for folder_path in unpack_path.glob("*"):
+    gcmtool_stats(folder_path)
+
+print("###############################################################################")
+print(f"# TEST 3/{TEST_COUNT}")
 print("# Comparing [unpack_path]->pack->unpack->[unpack2_path]")
 print("###############################################################################")
 # repack unpack_path repack_path
@@ -159,7 +174,7 @@ for folder_path in unpack_paths:
 shutil.rmtree(unpack2_path)
 
 print("###############################################################################")
-print(f"# TEST 3/{TEST_COUNT}")
+print(f"# TEST 4/{TEST_COUNT}")
 print("# Comparing [unpack_path]->rebuild_fst->repack->unpack->[unpack2_path]")
 print("###############################################################################")
 # rebuild unpack_path FSTs
@@ -183,6 +198,7 @@ shutil.rmtree(repack_path)
 # compare unpack_path unpack2_path
 for folder_path in unpack_path.glob("*"):
     compare_GCM(folder_path, unpack2_path / folder_path.name)
+
 
 # Remove tests folders
 print("###############################################################################")
