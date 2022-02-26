@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 
 
-__version__ = "0.0.10"
+__version__ = "0.1.0"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -107,7 +107,7 @@ class FstTree(Fst):
         self.__generate_nameblock_length()
         return align_offset(self.__count_childs(self.__root_node)*12 + 12 + self.__nameblock_length, self.__align)
     def __generate_nameblock_length(self, node:Node = None):
-        if node == None:
+        if node is None:
             node = self.__root_node
         else:
             self.__nameblock_length += len(node.name()) + 1
@@ -116,7 +116,7 @@ class FstTree(Fst):
                 self.__generate_nameblock_length(child)
     def __prepare(self, node:Node = None):
         name_offset = 0
-        if node == None:
+        if node is None:
             node = self.__root_node
         else:
             name_offset = len(self.__name_block)
@@ -154,7 +154,7 @@ class FstTree(Fst):
         else:
             node = Folder(node_path.name, parent)
         parent.add_child(node)
-    def get_fst(self):
+    def generate_fst(self):
         self.__current_file_offset += self.__get_fst_length()
         self.__prepare()
         return self.__fst_block + self.__name_block
@@ -299,7 +299,7 @@ class Gcm:
 
                     logging.debug(f"{iso_path}(0x{fileoffset:x}:0x{fileoffset + filesize:x}) -> {currentdir_path / name}")
     def pack(self, folder_path:Path, iso_path:Path = None):
-        if iso_path == None:
+        if iso_path is None:
             iso_path = folder_path.parent / Path(folder_path.name).with_suffix(".iso")
         if iso_path.is_file():
             raise Exception(f"Error - {iso_path} already exist. Remove this file or use another GCM file name.")
@@ -394,15 +394,101 @@ class Gcm:
         fst_path = sys_path / "fst.bin"
 
         logging.info(f"Writing fst in {Path('sys/fst.bin')}")
-        fst_path.write_bytes( fst_tree.get_fst() )
+        fst_path.write_bytes( fst_tree.generate_fst() )
 
         fst_size = fst_path.stat().st_size
-        logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.FSTLEN_OFFSET:x} with new fst size (0x{fst_size:x})")
+        logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.FSTLEN_OFFSET:x} with new FST size (0x{fst_size:x})")
         bootbin.set_fst_len(fst_size)
-        logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.MAXFSTLEN_OFFSET:x} with new max fst size (0x{fst_size:x})")
+        logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.MAXFSTLEN_OFFSET:x} with new FST max size (0x{fst_size:x})")
         bootbin.set_max_fst_len(fst_size)
 
         (sys_path / "boot.bin").write_bytes(bootbin.data())
+    def __get_sys_from_folder(self, file_path:Path):
+        sys_path = file_path / "sys"
+        bootbin = BootBin((sys_path / "boot.bin").read_bytes())
+        apploader_size = (sys_path / "apploader.img").stat().st_size
+        dol_len = (sys_path / "boot.dol").stat().st_size
+        fstbin_data = (sys_path / "fst.bin").read_bytes()
+        return (bootbin, apploader_size, dol_len, fstbin_data)
+    def __get_sys_from_file(self, file_path:Path):
+        bootbin = None
+        apploader_size = None
+        dol_len = None
+        fstbin_data = None
+        with file_path.open("rb") as iso_file:
+            bootbin = BootBin(iso_file.read(BootBin.LEN))
+            iso_file.seek(Gcm.APPLOADERSIZE_OFFSET)
+            apploader_size = Gcm.APPLOADER_HEADER_LEN + int.from_bytes(iso_file.read(4), "big", signed=False) + int.from_bytes(iso_file.read(4), "big", signed=False)
+
+            dol = Dol()
+            iso_file.seek( bootbin.dol_offset() )
+            dol_len = dol.get_dol_len( iso_file.read(Dol.HEADER_LEN) )
+            iso_file.seek( bootbin.fstbin_offset() )
+            fstbin_data = iso_file.read(bootbin.fstbin_len())
+        return (bootbin, apploader_size, dol_len, fstbin_data)
+    def stats(self, path:Path, align:int = 4):
+        (bootbin, apploader_size, dol_len, fstbin_data) = self.__get_sys_from_folder(path) if path.is_dir() else self.__get_sys_from_file(path)
+
+        # Begin offset - end offset - length - name
+        mapping_lists = [
+            [0, BootBin.LEN, f"{BootBin.LEN:08x}", "boot.bin"],
+            [0x440, Gcm.APPLOADER_OFFSET, f"{Gcm.BI2BIN_LEN:08x}", "bi2.bin"],
+            [Gcm.APPLOADER_OFFSET, Gcm.APPLOADER_OFFSET + apploader_size, f"{apploader_size:08x}", "apploader.img"],
+            [bootbin.fstbin_offset(), bootbin.fstbin_offset() + bootbin.fstbin_len(), f"{bootbin.fstbin_len():08x}", "fst.bin"],
+            [bootbin.dol_offset(), bootbin.dol_offset() + dol_len, f"{dol_len:08x}", "boot.dol"]]
+
+        dir_id_path = {0: Path(".")}
+        currentdir_path = Path(".")
+
+        # root: id=0 so nextdir is the end
+        nextdir = int.from_bytes(fstbin_data[8:12], "big", signed=False)
+        # offset of filenames block
+        base_names = nextdir * 12
+        # go to parent when id reach next dir
+        nextdir_arr = [ nextdir ]
+
+        for id in range(1, base_names // 12):
+            i = id * 12
+            file_type = int.from_bytes(fstbin_data[i:i+1], "big", signed=False)
+            name = fstbin_data[base_names + int.from_bytes(fstbin_data[i+1:i+4], "big", signed=False):].split(b"\x00")[0].decode("utf-8")
+            
+            while id == nextdir_arr[-1]:
+                currentdir_path = currentdir_path.parent
+                nextdir_arr.pop()
+
+            if file_type == FstTree.TYPE_DIR:
+                nextdir = int.from_bytes(fstbin_data[i+8:i+12], "big", signed=False)
+                parentdir = int.from_bytes(fstbin_data[i+4:i+8], "big", signed=False)
+
+                nextdir_arr.append( nextdir )
+                currentdir_path = dir_id_path[parentdir] / name
+                dir_id_path[id] = currentdir_path
+            else:
+                fileoffset = int.from_bytes(fstbin_data[i+4:i+8], "big", signed=False)
+                filesize   = int.from_bytes(fstbin_data[i+8:i+12], "big", signed=False)
+                mapping_lists.append( [fileoffset, fileoffset + filesize, f"{filesize:08x}", str(currentdir_path / name)] )
+
+        mapping_lists.sort(key=lambda x: x[0])
+
+        empty_space_tuples = []
+        last_offset = 0
+        for i in range(len(mapping_lists)):
+            if last_offset < mapping_lists[i][0]:
+                empty_space_tuples.append( (f"{last_offset:08x}", f"{mapping_lists[i][0]:08x}", f"{mapping_lists[i][0] - last_offset:08x}", "") )
+            elif last_offset > mapping_lists[i][0]:
+                raise Exception(f"Error - Bad align ({align})! Offsets collision.")
+            last_offset = align_offset(mapping_lists[i][1], align)
+            mapping_lists[i][0] = f"{mapping_lists[i][0]:08x}"
+            mapping_lists[i][1] = f"{mapping_lists[i][1]:08x}"
+
+        print(f"# Stats for \"{path}\":")
+        self.__print("Global memory mapping:", mapping_lists)
+        self.__print(f"Empty spaces (align={align}):", empty_space_tuples)
+    def __print(self, title:str, lines_tuples):#, columns:list = list(range(3))):
+        stats_buffer = "#"*70+f"\n# {title}\n"+"#"*70+"\n| b offset | e offset | length   | Name\n|"+"-"*69+"\n"
+        for line in lines_tuples:
+            stats_buffer += "| "+" | ".join(line)+"\n"
+        print(stats_buffer, end='')
 
 
 def get_argparser():
@@ -411,13 +497,14 @@ def get_argparser():
     parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
     parser.add_argument('-a', '--align', type=int, help='-a=10: alignment of files in the GCM ISO (default value is 4)', default=4)
-    parser.add_argument('input_path',  metavar='INPUT', help='')
+    parser.add_argument('input_path', metavar='INPUT', help='')
     parser.add_argument('output_path', metavar='OUTPUT', help='', nargs='?', default="")
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-p', '--pack',   action='store_true', help="-p source_folder (dest_file.iso): Pack source_folder in new file source_folder.iso or dest_file.iso if specified")
-    group.add_argument('-u', '--unpack', action='store_true', help='-u source_iso.iso (dest_folder): Unpack the GCM/ISO in new folder source_iso or dest_folder if specified')
-    group.add_argument('-r', '--rebuild-fst', action='store_true', help='-r game_folder: Rebuild the game_folder/sys/fst.bin using files in game_folder/root')
+    group.add_argument('-p', '--pack', action='store_true', help="-p source_folder (dest_file.iso): Pack source_folder in new file source_folder.iso or dest_file.iso if specified")
+    group.add_argument('-u', '--unpack', action='store_true', help="-u source_iso.iso (dest_folder): Unpack the GCM/ISO in new folder source_iso or dest_folder if specified")
+    group.add_argument('-s', '--stats', action='store_true', help="-s source_iso.iso or source_folder: Get stats about GCM, FST, memory, lengths and offsets.")
+    group.add_argument('-r', '--rebuild-fst', action='store_true', help="-r game_folder: Rebuild the game_folder/sys/fst.bin using files in game_folder/root")
     return parser
 
 
@@ -437,10 +524,12 @@ if __name__ == '__main__':
         if(p_output == Path(".")):
             p_output = Path(p_input.with_suffix(".iso"))
         logging.info(f"packing folder \"{p_input}\" in \"{p_output}\"")
-        gcm.pack( p_input, p_output )
+        gcm.pack(p_input, p_output)
     elif args.unpack:
         logging.info("### Unpack GCM iso in new folder")
-        gcm.unpack( p_input, p_output )
+        gcm.unpack(p_input, p_output)
+    elif args.stats:
+        gcm.stats(p_input)
     elif args.rebuild_fst:
         logging.info("### Rebuilding FST and patching boot.bin")
         if args.align < 1:
