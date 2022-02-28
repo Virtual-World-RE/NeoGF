@@ -21,6 +21,10 @@ Pack folder in GCM/iso:
 ```
 gcmtool.py --pack unpack_iso game.iso
 ```
+Get full memory mapping, sys and empty spaces informations: (path can be an GCM unpacked folder or a GCM/iso file)
+```
+gcmtool.py --stats path
+```
 Rebuild FST and patch boot.bin for a new apploader, dol, and add/remove/edit of folders and files:
 ```
 gcmtool.py --rebuild-fst unpack_iso
