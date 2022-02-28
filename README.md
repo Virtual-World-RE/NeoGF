@@ -10,7 +10,7 @@ If you want more infos about the game, go read our [Gotcha Force Wiki](http://re
 **Warning - Running tests is for dev purpose: it will create lots of files and this could stress your SSD.**
 
 ## gcmtool.py
-Python3 script for unpack/pack GCM/iso files. This tool can rebuild FileStringTable (FST) of GCM and patch boot.bin with a new apploader.img, boot.dol, add/remove/edit of folder and files of the game.
+Python3 script for unpack/pack/rebuild GCM/iso file format. This tool can rebuild FileStringTable (FST) of GCM and patch boot.bin with a new apploader.img, boot.dol, add/remove/edit folder and files of the game.
 
 ### User manual
 Unpack GCM/iso file **source_gcm.iso** in the default new folder _game_code-DVD_number_. If optional_dest_folder is specified we unpack in _optional_dest_folder_.
@@ -43,7 +43,7 @@ sys folder contains GCM system files of the game:
 * fst.bin
 
 ## afstool.py
-Python3 script for unpack/pack AFS files. Rebuild of Table of content (TOC) and Filename directory (FD) with full controll of every parameters.
+Python3 script for unpack/pack/rebuild AFS file format. Rebuild of Table of content (TOC) and Filename directory (FD) is possible with full controll of every parameters.
 
 ### User manual
 Unpack **source_afs.afs** in the default new folder _source_afs_.
