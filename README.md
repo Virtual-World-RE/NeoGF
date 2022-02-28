@@ -79,7 +79,7 @@ sys folder contains AFS system files of the game and generated files needed for 
 * afs_rebuild.csv - Edit this file with correct values set in afs_rebuild.conf for rebuilding the AFS.
 
 ### filename_resolver.csv:
-When there is a FD, new names use "filename (N).ext" format with N:Integer. Each line contains a couple of "index/unpacked_filename". If there is no FD in the AFS, files are named with their index, for instance: "00000002" for the second file. You can use the resolver to rename files using the index like this: "2/my_new_filename.ext". Then during pack afstool.py will auto detect the file and put it at the right index.
+When there is a FD, new names use "filename (N).ext" format with N:Integer. Each line contains a couple of "index/unpacked_filename". If there is no FD in the AFS, files are named with their index, for instance: "00000002" for the third file. You can use the resolver to rename files using the index like this: "2/my_new_filename.ext". Then during pack afstool.py will auto detect the file and put it at the right index.
 
 ### afs_rebuild.conf:
 All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto when it's possible.
