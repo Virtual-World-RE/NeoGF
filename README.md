@@ -109,7 +109,7 @@ files_rebuild_strategy is used to organise files (indexes, offsets, packed name 
 * unknown: Don't know yet what it represent.
 
 ### afs_rebuild.csv:
-afs_rebuild.csv contains entries describing how to pack files in the AFS. All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto for offsets or indexes when it's possible. Offsets have to be aligned to 0x800 (2048). Put one line per selected file that you wan't to constraint using the format: "unpacked_filename/index/offset/packed_filename", for instance: "dummy (5).bin/0x12/0x80000/dummy.bin". You can put auto to index or offset: "dummy (5).bin/auto/auto/dummy.bin". For an empty block add only offset/length couple with length aligned to 0x800, for instance: "0x80000/0x5000".
+afs_rebuild.csv contains entries describing how to pack files in the AFS. All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto for offsets or indexes when it's possible. Offsets have to be aligned to 0x800 (2048). Put one line per selected file that you wan't to constraint using the format: "unpacked_filename/index/offset/packed_filename", for instance: "dummy (5).bin/0x12/0x80000/dummy.bin". You can put auto to index or offset: "dummy (5).bin/auto/auto/dummy.bin". For an empty block add only offset/length couple with values aligned to 0x800, for instance: "0x80000/0x5000".
 
 When rebuilding, remove all files without constraints from afs_rebuild.csv. Then put auto in indexes and offsets that doesn't have constraints. While rebuilding the AFS filename_resolver.csv will be removed but you can keep changes about filenames by adding entries with unpacked_filename+index (and packed_filename when there is a FD) into this file.
 
