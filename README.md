@@ -108,10 +108,10 @@ All offsets and indexes are stored in hexadecimal with **0x** prefix: 0xabcdef. 
 **fd_offset**: The FD is at the end of the AFS. Use auto when it's possible.
 
 **fd_last_attribute_type**: The type of the last 4 bytes of each FD entries. 4 values are available:
-* length: Use file length.
-* offset-length: Use offset length series.
-* 0xabcdef: Use a custom hexadecimal constant.
-* unknown: Don't know yet what it represent.
+* **length**: Use file length.
+* **offset-length**: Use offset length series.
+* **0xabcdef**: Use a custom hexadecimal constant.
+* **unknown**: Don't know yet what it represent. Null value will be used.
 
 ### afs_rebuild.csv
 **afs_rebuild.csv** contains entries describing how to pack files in the AFS. All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto for offsets or indexes when it's possible. Offsets have to be aligned to 0x800 (2048). Put one line per selected file that you wan't to constraint using the format: "unpacked_filename/index/offset/packed_filename", for instance: "dummy (5).bin/0x12/0x80000/dummy.bin". You can put auto to index or offset: "dummy (5).bin/auto/auto/dummy.bin". For an empty block add only offset/length couple with values aligned to 0x800, for instance: "0x80000/0x5000".
