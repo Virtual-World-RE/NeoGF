@@ -87,7 +87,7 @@ Pack doesn't update the original FD names. This file is used during pack to auto
 Each lines of this csv contains a couple of "index/unpacked_filename". You can use it to rename unpacked files, for instance: "0/my_new_filename.ext".
 
 ### afs_rebuild.conf
-All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto when it's possible.
+All offsets and indexes are stored in hexadecimal with **0x** prefix: 0xabcdef. Use **auto** value when it's possible.
 
 #### \[Default\] section
 **AFS_MAGIC**: 0x41465300 or 0x41465320
