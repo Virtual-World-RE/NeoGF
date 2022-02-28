@@ -52,10 +52,7 @@ If the FD is present we use OS mtime to store the date of the file.
 ```
 afstool.py --unpack source_afs.afs optional_dest_folder
 ```
-Pack **source_folder** in the default new file _source_folder.afs_.
-If optional_dest_file.afs is specified we pack in _optional_dest_file.afs_.
-If the FD is present we use OS mtime to retrieve and update the date of the file.
-Pack handle max file size using next file (or sys file) offset. Without FD the last file has no max length constraint.
+Pack **source_folder** in the default new file _source_folder.afs_. If optional_dest_file.afs is specified we pack in _optional_dest_file.afs_. If the FD is present we use OS mtime to retrieve and update the date of the file. Pack handle max file size using next file (or sys file) offset. Without FD the last file has no max length constraint. FD Names stay inchanged by the pack command.
 ```
 afstool.py --pack source_folder optional_dest_file.afs
 ```
@@ -79,7 +76,9 @@ afstool.py --stats path
 * afs_rebuild.csv - Edit this file according to the configuration used in afs_rebuild.conf for rebuilding the AFS.
 
 ### filename_resolver.csv
-When there is a FD, new names use "filename (N).ext" format with N:Integer. Each line contains a couple of "index/unpacked_filename". If there is no FD in the AFS, files are named with their index, for instance: "00000002" for the third file. You can use the resolver to rename files using the index like this: "2/my_new_filename.ext". Then during pack afstool.py will auto detect the file and put it at the right index.
+When there is a FD with duplicated filenames, extracted files with duplicated names use "filename **(N)**.ext" with N:Integer. Pack doesn't change the FD filenames. This file is used to match unpacked_filenames to an index in the TOC/FD during pack keeping the original name.
+
+Each lines of this csv contains a couple of "index/unpacked_filename". If there is no FD in the AFS, files are named with their index, for instance: "00000000" for the first file. You can use the resolver to rename unpacked files using the TOC index like this: "0/my_new_filename.ext". Then during pack afstool.py will auto detect the unpacked_file and put it at the right index.
 
 ### afs_rebuild.conf
 All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto when it's possible.
