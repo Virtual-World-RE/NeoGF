@@ -38,7 +38,7 @@ sys folder contains GCM system files of the game:
 * fst.bin
 
 ## afstool.py
-Python3 script for unpack/pack AFS files. Rebuild of Table of content (TOC) and Filename directory (FD) is not implemented yet. This tool is under development.
+Python3 script for unpack/pack AFS files. Rebuild of Table of content (TOC) and Filename directory (FD) with full controll of every parameters.
 
 ### User manual
 unpack **source_afs.afs** in the default new folder _source_afs_.
