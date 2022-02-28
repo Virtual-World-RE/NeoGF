@@ -10,7 +10,7 @@ If you want more infos about the game, go read our [Gotcha Force Wiki](http://re
 **Warning - Running tests is for dev purpose: it will create lots of files and this could stress your SSD.**
 
 ## gcmtool.py
-Python3 script for unpack/pack/rebuild GCM/iso file format. This tool can rebuild FileStringTable (FST) of GCM and patch boot.bin with a new apploader.img, boot.dol, add/remove/edit folder and files of the game.
+Python3 script for unpack/pack/rebuild GCM/iso file format. This tool can rebuild FileStringTable (FST) of GCM and patch boot.bin with a new apploader.img, boot.dol, add/remove/edit folder and files of the game. MIT License.
 
 ### User manual
 Unpack GCM/iso file **source_gcm.iso** in the default new folder _game_code-DVD_number_. If optional_dest_folder is specified we unpack in _optional_dest_folder_.
@@ -47,7 +47,7 @@ sys folder contains GCM system files of the game:
 * fst.bin
 
 ## afstool.py
-Python3 script for unpack/pack/rebuild AFS file format. Rebuild of Table of content (TOC) and Filename directory (FD) is possible with full controll of every parameters.
+Python3 script for unpack/pack/rebuild AFS file format. Rebuild of Table of content (TOC) and Filename directory (FD) is possible with full controll of every parameters. MIT License.
 
 ### User manual
 Unpack **source_afs.afs** in the default new folder _source_afs_.
@@ -114,12 +114,12 @@ All offsets and indexes are stored in hexadecimal with **0x** prefix: 0xabcdef. 
 * **unknown**: Don't know yet what it represent. Null value will be used.
 
 ### afs_rebuild.csv
-**afs_rebuild.csv** contains entries describing how to pack files in the AFS. All offsets and indexes are stored in hexadecimal with 0x prefix: 0xabcdef. Use auto for offsets or indexes when it's possible. Offsets have to be aligned to 0x800 (2048). Put one line per selected file that you wan't to constraint using the format: "unpacked_filename/index/offset/packed_filename", for instance: "dummy (5).bin/0x12/0x80000/dummy.bin". You can put auto to index or offset: "dummy (5).bin/auto/auto/dummy.bin". For an empty block add only offset/length couple with values aligned to 0x800, for instance: "0x80000/0x5000".
+**afs_rebuild.csv** contains entries describing how to pack '''root''' files in the AFS. All offsets and indexes values are stored in hexadecimal with **0x** prefix: 0xabcdef. Use **auto** value for offsets or indexes when it's possible. Offsets have to be aligned to 0x800 (2048). Put one line per selected file that you wan't to constraint using the format: "unpacked_filename/index/offset/packed_filename", for instance: "dummy (5).bin/0x12/0x80000/dummy.bin". You can put auto to index or offset: "dummy (5).bin/auto/auto/dummy.bin". For an empty block add only offset/length couple with values aligned to 0x800, for instance: "0x80000/0x5000".
 
-When rebuilding, remove all files without constraints from afs_rebuild.csv. Then put auto in indexes and offsets that doesn't have constraints. While rebuilding the AFS filename_resolver.csv will be removed but you can keep changes about filenames by adding entries with unpacked_filename+index (and packed_filename when there is a FD) into this file.
+When rebuilding, remove all files without constraints from '''afs_rebuild.csv'''. Then put '''auto''' value in indexes and offsets that doesn't have constraints. While rebuilding the AFS filename_resolver.csv will be removed but you can keep changes about filenames by adding entries with unpacked_filename+index (and packed_filename when there is a FD) into this file.
 
 ## pzztool.py
-Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archive. MDT files are also handled by pzztool.py.
+Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archive. MDT files are also handled by pzztool.py. MIT License.
 
 ### How to patch a pzz
 1. Extract afs_data.afs from the ROM
