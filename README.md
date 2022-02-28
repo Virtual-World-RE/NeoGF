@@ -30,7 +30,11 @@ Print stats about the GCM/iso file or the unpacked GCM/iso folder. This stats co
 ```
 gcmtool.py --stats path -a 4 
 ```
-Japanese charset is not handled for now except if you have installed Japanese local. The original GCM/iso and repack GCM/iso are different most of the time. This is because GCM DVD contains "empty spaces" with data unused (old datas or random datas I don't know). So this datas are useless and loss during unpack. The sorting of files during FST rebuild is deferent from the original and this is full compatible with the GameCube dol API.
+Japanese charset is not handled for now except if you have installed Japanese local.
+
+The original GCM/iso and repack GCM/iso are different most of the time. This is because GCM DVD contains "empty spaces" with data unused (old datas or random datas I don't know). So this datas are useless and loss during unpack.
+
+The sorting of files during FST rebuild is deferent from the original and this is full compatible with the GameCube dol API.
 
 ### Extracted file tree
 root folder contains all files of the unpacked GCM/iso
@@ -76,7 +80,7 @@ afstool.py --stats path
 * afs_rebuild.csv - Edit this file according to the configuration used in afs_rebuild.conf for rebuilding the AFS.
 
 ### filename_resolver.csv
-When there is a FD with duplicated filenames, extracted files with duplicated names use "filename **(N)**.ext" with N:Integer. Pack doesn't change the FD filenames. This file is used to match unpacked_filenames to an index in the TOC/FD during pack keeping the original name.
+When there is a FD with duplicated filenames, extracted files with duplicated names use "filename **(N)**.ext" with N:Integer. Pack doesn't change the FD filenames. This file is used during pack to match unpacked_filenames to their index in the TOC/FD even if their are different from the original name.
 
 Each lines of this csv contains a couple of "index/unpacked_filename". If there is no FD in the AFS, files are named with their index, for instance: "00000000" for the first file. You can use the resolver to rename unpacked files using the TOC index like this: "0/my_new_filename.ext". Then during pack afstool.py will auto detect the unpacked_file and put it at the right index.
 
