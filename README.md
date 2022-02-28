@@ -21,14 +21,15 @@ Pack folder in GCM/iso:
 ```
 gcmtool.py --pack unpack_iso game.iso
 ```
-Get full memory mapping, sys and empty spaces informations: (path can be an GCM unpacked folder or a GCM/iso file)
-```
-gcmtool.py --stats path
-```
 Rebuild FST and patch boot.bin for a new apploader, dol, and add/remove/edit of folders and files:
 ```
 gcmtool.py --rebuild-fst unpack_iso
 ```
+Print stats about the GCM/iso file or the unpacked GCM/iso folder. Get full memory mapping, sys and empty spaces informations:
+```
+gcmtool.py --stats path
+```
+
 Japanese charset is not handled for now except if you have installed Japanese local. The original GCM/iso and repack GCM/iso are different most of the time. This is because GCM DVD contains "empty spaces" with data unused (old datas or random datas I don't know). So this datas are useless and loss during unpack.
 
 ### Extracted file tree
@@ -45,16 +46,16 @@ sys folder contains GCM system files of the game:
 Python3 script for unpack/pack AFS files. Rebuild of Table of content (TOC) and Filename directory (FD) with full controll of every parameters.
 
 ### User manual
-unpack **source_afs.afs** in the default new folder _source_afs_.
+Unpack **source_afs.afs** in the default new folder _source_afs_.
 If optional_dest_folder is specified we unpack in _optional_dest_folder_.
 If the FD is present we use OS mtime to store the date of the file.
 ```
 afstool.py --unpack source_afs.afs optional_dest_folder
 ```
-pack **source_folder** in the default new file _source_folder.afs_.
+Pack **source_folder** in the default new file _source_folder.afs_.
 If optional_dest_file.afs is specified we pack in _optional_dest_file.afs_.
 If the FD is present we use OS mtime to retrieve and update the date of the file.
-pack handle max file size using next file (or sys file) offset. Without FD the last file has no max length constraint.
+Pack handle max file size using next file (or sys file) offset. Without FD the last file has no max length constraint.
 ```
 afstool.py --pack source_folder optional_dest_file.afs
 ```
