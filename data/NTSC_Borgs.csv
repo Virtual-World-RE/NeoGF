@@ -1,0 +1,209 @@
+filename;borgname;Number;Cost;Data Crystals Required;Tribe;Type;Rarity;Has Alternate?;Level 1 HP/Level 10 HP;Defense;Shot;Attack;Speed;Jump Type;Level-up Schedule
+pl0000;NORMAL NINJA;15;150;1;Ninja Borg;Almighty Type;D;Yes;150/195;2;2;3;5;Air jump level 3;Normal
+pl0001;SHURIKEN NINJA;16;310;1;Ninja Borg;Short range type;D;Yes;200/245;2;2;6;5;Air jump level 3;Normal
+pl0002;ARROW NINJA;17;300;1;Ninja Borg;Support type;D;Yes;180/225;2;2;3;5;Air jump level 3;Normal
+pl0003;DOUBLE NINJA;18;210;1;Ninja Borg;Almighty Type;D;Yes;150/195;2;3;3;5;Air jump level 3;Normal
+pl0004;ACCELERATION NINJA;19;380;1;Ninja Borg;Speed type;D;Yes;200/245;3;3;4;9;Air jump level 3;Normal
+pl0005;TELEPORT NINJA;20;400;1;Ninja Borg;Speed type;C;Yes;200/245;4;3;4;7;Air jump level 3;Normal
+pl0006;FLAME NINJA;114;590;2;Ninja Borg;Short range type;B;Yes;250/295;3;2;6;5;Air jump level 3;Normal
+pl0007;CYBER NINJA;153;640;3;Ninja Borg;Almighty type;A;Yes;300/345;4;5;5;10;Boost jump;Normal
+pl0008;DEATH BORG ALPHA;76;80;1;Death Borg;Almighty type;C;Yes;50/68;1;1;2;4;Air jump level 3;Fast
+pl0009;SWITCHING NINJA;115;380;2;Ninja Borg;Almighty type;C;No;200/245;4;2;3;7;Air jump level 3;Normal
+pl000a;SASUKE;2;150;4;Ninja Borg;Almighty type;A;No;180/225;2;2;3;5;Air jump level 3;Normal
+pl000b;SHIJIMA;9;300;4;Ninja Borg;Support type;A;No;210/255;2;2;3;5;Air jump level 3;Normal
+pl000c;DEATH BORG ALPHA II;77;110;1;Death Borg;Short range type;C;No;60/78;1;2;2;4;Air jump level 3;Fast
+pl0100;REVOLVER GUNMAN;21;250;1;Gun Borg;Long range type;D;Yes;150/195;2;4;2;4;Air jump level 3;Normal
+pl0101;POWERED GUNMAN;22;350;1;Gun Borg;Long range type;D;Yes;200/245;2;4;2;4;Air jump level 3;Normal
+pl0102;GATLING GUNNER;116;420;2;Gun Borg;Long range type;B;Yes;250/295;3;6;0;4;Air jump level 3;Normal
+pl0103;WIRE GUNNER;23;270;1;Gun Borg;Support type;D;Yes;220/265;3;3;2;5;Air jump level 3;Normal
+pl0104;BEAM GUNNER;154;650;3;Gun Borg;Long range type;A;Yes;300/345;3;6;2;6;Boost jump;Normal
+pl0105;DEATH BORG BETA II;79;100;1;Death Borg;Long range type;C;Yes;50/68;1;2;0;3;Air jump level 3;Fast
+pl0106;TIME BOMBER;24;220;1;Gun Borg;Long range type;D;No;220/265;2;4;0;5;Air jump level 3;Normal
+pl0107;REMOTE BOMBER;25;180;1;Gun Borg;Long range type;D;No;220/265;2;4;0;5;Air jump level 3;Normal
+pl0108;BILLY;13;250;4;Gun Borg;Long range type;A;No;200/245;2;4;2;4;Air jump level 3;Normal
+pl0109;DEATH BORG BETA;78;90;1;Death Borg;Short range type;C;No;50/68;1;0;1;3;Air jump level 3;Fast
+pl010a;DEATH BORG BETA III;80;120;1;Death Borg;Short range type;C;No;50/68;1;3;0;3;Air jump level 3;Fast
+pl0200;SWORD KNIGHT;30;280;1;Knight Borg;Short range type;D;Yes;180/225;5;1;4;4;Air jump level 3;Normal
+pl0201;CHAINSAW KNIGHT;32;370;1;Knight Borg;Short range type;D;Yes;250/340;3;0;6;2;Air jump level 4;Normal
+pl0202;ELEMENTAL KNIGHT;31;540;1;Knight Borg;Short range type;C;Yes;300/345;4;3;5;4;Air jump level 3;Normal
+pl0203;SPIKE KNIGHT;117;520;2;Knight Borg;Short range type;C;Yes;250/295;6;3;6;4;Air jump level 3;Normal
+pl0204;AXE KNIGHT;118;590;2;Knight Borg;Short range type;B;Yes;250/295;3;4;6;4;Air jump level 3;Normal
+pl0205;DARK KNIGHT;183;610;4;Knight Borg;Almighty type;A;Yes;300/345;7;5;5;5;Air jump Level 3;Normal
+pl0206;DEATH BORG GAMMA;81;90;1;Death Borg;Short range type;C;Yes;80/98;2;0;2;4;Air jump level 3;Fast
+pl0207;ALIEN INSECT;190;350;1;Bug Borg;Short range type;D;Yes;200/245;5;3;5;4;Air jump level 4;Normal
+pl0208;SAPPHIRE KNIGHT;155;630;3;Knight Borg;Almighty type;B;Yes;300/345;6;6;5;6;Boost jump;Normal
+pl0209;IMPERIAL KNIGHT;182;550;3;Knight Borg;Short range type;B;No;250/295;6;3;5;4;Air jump level 3;Fast
+pl020a;NORMAL KNIGHT;26;180;1;Knight Borg;Short range type;D;No;180/225;4;1;3;4;Air jump level 3;Fast
+pl020b;GHOST KNIGHT;28;590;1;Knight Borg;Short range type;C;No;200/245;3;3;4;4;Air jump level 3;Normal
+pl020c;HAMMER KNIGHT;29;450;1;Knight Borg;Short range type;D;No;200/245;4;3;4;3;Air jump level 3;Normal
+pl020d;HATCHET KNIGHT;27;490;1;Knight Borg;Short range type;C;No;200/245;3;4;5;4;Air jump level 3;Normal
+pl020e;RUBY KNIGHT;156;590;3;Knight Borg;Short range type;B;No;300/345;6;5;5;6;Boost jump;Normal
+pl020f;DEATH BORG GAMMA II;82;110;1;Death Borg;Short range type;C;No;80/98;2;2;2;4;Air jump level 3;Fast
+pl0300;BATTLE GIRL;34;230;1;Girl Borg;Speed type;D;Yes;130/175;2;3;2;6;Boost jump;Normal
+pl0301;WIRE GIRL;35;220;1;Girl Borg;Speed type;D;Yes;140/185;3;3;2;6;Boost jump;Normal
+pl0302;BARRIER GIRL;38;500;1;Girl Borg;Speed Type;C;Yes;150/195;5;3;3;6;Boost jump;Normal
+pl0303;DEATH BORG DELTA II;84;100;1;Death Borg;Long range type;C;Yes;50/68;1;3;0;6;Boost jump;Fast
+pl0304;KILLER GIRL;181;580;4;Girl Borg;Long range type;B;Yes;150/195;2;5;2;6;Boost jump;Slow
+pl0305;CYBER GIRL SUPER;120;590;2;Girl Borg;Long range type;B;Yes;250/295;3;6;2;6;Boost jump;Normal
+pl0306;COMMAND GIRL;36;330;1;Girl Borg;Long range type;D;No;200/245;2;5;0;6;Boost jump;Normal
+pl0307;SPINNER GIRL;37;250;1;Girl Borg;Speed type;D;No;200/245;2;3;3;6;Boost jump;Fast
+pl0308;SHADOW GIRL;180;340;1;Girl Borg;Speed type;C;No;100/145;2;0;3;5;Air jump level 3;Slow
+pl0309;CYBER GIRL;119;440;2;Girl Borg;Almighty type;C;No;200/245;3;3;3;6;Boost jump;Normal
+pl030a;CYBER GIRL HYPER;157;620;3;Girl Borg;Long range type;A;No;300/345;3;6;2;6;Boost jump;Normal
+pl030b;KEI;6;230;4;Girl Borg;Speed type;A;No;150/195;2;3;2;6;Boost jump;Normal
+pl030c;DEATH BORG DELTA;83;80;1;Death Borg;Short range type;C;No;50/68;1;0;1;6;Boost jump;Fast
+pl030d;DEATH BORG DELTA III;85;100;1;Death Borg;Speed type;C;No;50/68;1;2;2;6;Boost jump;Fast
+pl0400;CLAW ROBOT;58;350;1;Machine Borg;Short range type;D;Yes;300/390;4;3;5;4;Boost jump;Normal
+pl0401;DRILL ROBOT;134;500;2;Machine Borg;Short range type;D;Yes;350/440;5;3;6;4;Boost jump;Normal
+pl0402;BUILD ROBOT;59;410;1;Machine Borg;Support type;D;Yes;300/390;5;3;5;4;Boost jump;Normal
+pl0403;HAMMER ROBOT;135;460;2;Machine Borg;Short range type;C;Yes;400/490;5;3;6;4;Boost jump;Normal
+pl0404;THUNDER ROBOT;60;400;1;Machine Borg;Short range type;D;Yes;350/440;4;3;5;4;Boost jump;Normal
+pl0405;MAGNET ROBOT (+);61;400;1;Machine Borg;Support type;D;Yes;350/440;4;3;5;4;Boost jump;Normal
+pl0406;DEATH BORG OMEGA;103;130;1;Death Borg;Short range type;C;Yes;100/118;2;0;3;3;Boost jump;Fast
+pl0407;MEGATON ROBOT;63;470;1;Machine Borg;Short range type;C;No;350/440;4;4;5;4;Boost jump;Normal
+pl0408;ARMY ROBOT;136;400;2;Machine Borg;Support type;D;No;350/440;5;2;5;4;Boost jump;Fast
+pl0409;MAGNET ROBOT (-);62;410;1;Machine Borg;Support type;D;No;350/440;4;3;5;4;Boost jump;Normal
+pl040a;ISAAC;4;350;4;Machine Borg;Short range type;A;No;330/420;4;3;5;4;Boost jump;Normal
+pl040b;DEATH BORG OMEGA II;104;170;1;Death Borg;Short range type;C;No;100/118;2;2;4;3;Boost jump;Fast
+pl040c;DEATH BORG OMEGA III;105;150;1;Death Borg;Long range type;C;No;150/168;2;2;0;3;Boost jump;Fast
+pl040d;DEATH BORG OMEGA IV;106;160;1;Death Borg;Long range type;C;No;100/118;2;2;0;3;Boost jump;Fast
+pl0500;FLAME DRAGON;149;1500;2;Dragon Borg;Long range type;C;Yes;1000/1450;8;7;2;1;Boost jump;Normal
+pl0501;ALIEN WORM;193;600;2;Bug Borg;Almighty type;D;Yes;300/345;4;4;4;4;Boost jump;Normal
+pl0502;PHOENIX DRAGON;150;800;2;Dragon Borg;Speed type;C;Yes;500/590;5;4;5;6;Boost jump;Normal
+pl0503;CYBER DEATH DRAGON;204;2000;N/A (acquired through fusion);Dragon Borg;Long range type;A;Yes;2500/3400;10;9;2;1;Boost jump;Normal
+pl0504;COSMIC DRAGON;201;1700;5;Dragon Borg;Long range type;B;Yes;1300/1750;9;8;2;1;Boost jump;Normal
+pl0505;DEATH HEAD;202;500;5;Dragon Borg;Long range type;A;Yes;500/590;5;5;0;4;Boost jump;Normal
+pl0506;CYBER DRAGON;203;1500;5;Dragon Borg;Long range type;A;Yes;2000/2450;9;8;2;1;Boost jump;Normal
+pl0507;CYBER DEATH DRAGON;204;2000;N/A (acquired through fusion);Dragon Borg;Long range type;A;Yes;2500/3400;10;9;2;1;Boost jump;Normal
+pl0509;PLASMA DRAGON;151;1600;2;Dragon Borg;Long range type;C;No;1000/1450;8;7;2;1;Boost jump;Normal
+pl050a;BLIZZARD DRAGON;152;1550;2;Dragon Borg;Long range type;C;No;1000/1450;8;7;2;1;Boost jump;Normal
+pl050b;VENOM WORM;194;500;2;Bug Borg;Almighty type;D;No;300/345;4;4;4;4;Boost jump;Normal
+pl050c;FIRE DRAGON;110;1000;1;Dragon Borg;Long range type;D;No;500/680;5;6;1;1;Boost jump;Normal
+pl050d;CLAW WORM;191;390;1;Bug Borg;Almighty type;D;No;150/168;3;3;3;4;Boost jump;Normal
+pl050e;WING DRAGON;111;450;1;Dragon Borg;Speed type;D;No;250/268;3;3;4;6;Boost jump;Normal
+pl050f;MACHINE DRAGON;200;1500;N/A (acquired through fusion);Dragon Borg;Long range type;B;No;1250/1790;8;7;1;1;Boost jump;Normal
+pl0510;SPACE DRAGON;197;1200;1;Dragon Borg;Long range type;C;No;650/740;6;7;1;1;Boost jump;Normal
+pl0511;MACHINE HEAD;198;300;1;Dragon Borg;Long range type;B;No;250/340;3;4;0;4;Boost jump;Normal
+pl0512;MECHANICAL DRAGON;199;1200;1;Dragon Borg;Long range type;B;No;1000/1450;8;6;1;1;Boost jump;Normal
+pl0513;MACHINE DRAGON;200;1500;N/A (acquired through fusion);Dragon Borg;Long range type;B;No;1250/1790;8;7;1;1;Boost jump;Normal
+pl0515;THUNDER DRAGON;112;1100;1;Dragon Borg;Long range type;D;No;500/680;5;6;1;1;Boost jump;Normal
+pl0516;ICE DRAGON;113;1050;1;Dragon Borg;Long range type;D;No;500/680;5;6;1;1;Boost jump;Normal
+pl0517;POISON WORM;192;300;1;Bug Borg;Almighty type;D;No;150/168;3;3;3;4;Boost jump;Normal
+pl0600;MACHINE RED;164;900;3;Machine Borg;Almighty type;A;No;500/590;5;5;5;5;Boost jump;Normal
+pl0601;MACHINE BLUE;165;850;3;Machine Borg;Long range type;A;No;550/640;6;5;4;5;Boost jump;Normal
+pl0602;CYBER MACHINE SEIRYU;176;1750;N/A (acquired through fusion);Machine Borg;Almighty type;A;No;1050/1230;9;7;7;5;Boost jump;Normal
+pl0604;TITAN ROBOT;166;1000;3;Machine Borg;Short range type;A;Yes;450/540;5;3;5;5;Boost jump;Normal
+pl0606;EAGLE ROBOT;167;1000;3;Machine Borg;Almighty type;A;Yes;400/490;5;5;5;6;Boost jump;Normal
+pl0608;CYBER MARS;168;950;3;Machine Borg;Almighty type;A;No;500/590;5;5;5;5;Boost jump;Normal
+pl0609;CYBER ATLAS;169;900;3;Machine Borg;Long Range Type;A;No;550/640;6;7;4;5;Boost jump;Normal
+pl060a;CYBER MACHINE SUZAKU;177;1850;N/A (acquired through fusion);Machine Borg;Almighty type;A;No;1050/1230;9;8;7;5;Boost jump;Normal
+pl060c;CYBER MACHINE BYAKKO;178;1800;N/A (acquired through fusion);Machine Borg;Almighty type;A;No;1050/1230;9;8;7;5;Boost jump;Normal
+pl060e;CYBER MACHINE GENBU;179;1800;N/A (acquired through fusion);Machine Borg;Almighty type;A;No;1050/1230;9;7;7;5;Boost jump;Normal
+pl0610;VICTORY KING;175;1000;4;Machine Borg;Almighty type;A;Yes;450/540;5;4;6;5;Boost jump;Normal
+pl0613;PANTHER ROBOT;158;1000;3;Machine Borg;Short range type;A;Yes;450/540;5;3;5;5;Boost jump;Normal
+pl0615;G RED;1;300;1;Machine Borg;Almighty type;A;Yes;200/290;3;4;4;6;Boost jump;Normal
+pl0616;PROTO RED;137;850;2;Machine Borg;Almighty type;B;No;500/590;5;5;5;5;Boost jump;Slow
+pl0617;PROTO BLUE;138;800;2;Machine Borg;Long range type;B;No;550/640;6;5;4;5;Boost jump;Slow
+pl0618;PROTO TITAN;139;800;2;Machine Borg;Short range type;B;No;420/510;5;3;5;5;Boost jump;Slow
+pl0619;TITAN TANK;66;620;1;Tank Borg;Long range type;C;No;400/490;4;6;0;3;Boost jump;Slow
+pl061a;PROTO EAGLE;140;850;2;Machine Borg;Almighty Type;B;No;380/470;5;5;5;6;Boost jump;Slow
+pl061b;EAGLE JET;71;380;1;Air Borg;Speed type;C;No;250/340;3;3;2;9;N/A;Slow
+pl061c;PROTO MARS;141;900;2;Machine Borg;Almighty type;B;No;500/590;5;5;5;5;Boost jump;Slow
+pl061d;PROTO ATLAS;142;850;2;Machine Borg;Long range type;B;No;550/640;6;7;4;5;Boost jump;Slow
+pl061e;PROTO KING;143;800;2;Machine Borg;Almighty type;B;No;400/490;4;4;5;5;Boost jump;Slow
+pl061f;VICTORY TANK;67;560;1;Tank Borg;Long range type;C;No;400/490;4;5;0;3;Boost jump;Slow
+pl0620;VICTORY JET;72;380;1;Air Borg;Speed type;C;No;300/390;3;3;0;9;N/A;Slow
+pl0621;VICTORY DUKE;170;850;3;Machine Borg;Almighty type;B;No;420/510;4;4;5;5;Boost jump;Slow
+pl0623;VICTORY BARON;171;850;3;Machine Borg;Almighty type;B;No;380/470;4;4;5;5;Boost jump;Slow
+pl0625;VICTORY MACHINE;146;600;2;Tank Borg;Long range type;C;No;400/490;4;5;0;3;Boost jump;Slow
+pl0627;PROTO PANTHER;144;800;2;Machine Borg;Short range type;B;No;400/445;4;3;5;5;Boost jump;Slow
+pl0628;PANTHER VEHICLE;69;620;1;Tank Borg;Long range type;C;No;200/245;3;4;0;8;Boost jump;Slow
+pl0629;NEO G RED;14;500;1;Machine Borg;Almighty type;A;No;400/490;5;5;6;6;Boost jump;Normal
+pl062a;G BLACK;206;600;N/A;Machine Borg;Almighty type;S;No;350/440;4;5;6;6;Boost jump;Normal
+pl0700;NORMAL SAMURAI;39;300;1;Musha Borg;Short range type;D;Yes;220/310;2;2;4;5;Air jump level 3;Normal
+pl0701;DEMON SAMURAI;186;480;1;Demon Borg;Short range type;D;Yes;220/310;3;3;6;5;Air jump level 3;Normal
+pl0702;VAMPIRE KNIGHT;33;330;1;Knight Borg;Short range type;D;Yes;250/340;2;2;4;5;Air jump level 3;Normal
+pl0703;SONIC SAMURAI;40;330;1;Musha Borg;Short range type;D;Yes;250/340;2;2;4;6;Air jump level 3;Normal
+pl0704;SAMURAI SHOGUN;121;620;3;Musha Borg;Short range type;A;Yes;300/390;3;5;5;5;Air jump level 3;Normal
+pl0705;DEATH BORG ZETA;86;100;1;Death Borg;Short range type;C;Yes;50/59;1;0;3;5;Air jump level 3;Fast
+pl0706;BEAM SAMURAI;159;550;3;Musha Borg;Short range type;B;Yes;350/440;4;0;7;5;Air jump level 3;Normal
+pl0707;CHRONO SAMURAI;184;600;3;Musha Borg;Short range type;B;No;220/238;5;2;5;5;Air jump level 3;Normal
+pl0708;AKUMA SAMURAI;185;480;1;Demon Borg;Short range type;D;No;250/340;3;3;6;5;Air jump level 3;Normal
+pl0709;MUSASHI;8;300;4;Musha Borg;Short range type;A;No;250/340;3;2;4;5;Air jump level 3;Normal
+pl070a;VLAD;5;330;4;Knight Borg;Short range type;A;No;280/370;2;2;4;5;Air jump level 3;Normal
+pl070b;DEATH BORG ZETA II;87;140;1;Death Borg;Short range type;C;No;50/59;1;2;3;5;Air jump level 3;Fast
+pl070c;DEATH BORG ZETA III;88;160;1;Death Borg;Short range type;C;No;60/69;1;2;3;5;Air jump level 3;Fast
+pl070d;DEATH BORG ZETA IV;89;150;1;Death Borg;Short range type;C;No;60/69;1;3;3;5;Air jump level 3;Fast
+pl0800;KUNG-FU MASTER;41;260;1;Knuckle Borg;Short range type;D;Yes;180/270;2;1;4;7;Air jump level 3;Normal
+pl0801;TAO MASTER;42;300;1;Knuckle Borg;Almighty type;D;Yes;180/270;2;3;3;7;Air jump level 3;Normal
+pl0802;GOLD HERO;122;420;2;Hero Borg;Short range type;C;Yes;200/290;2;2;3;4;Air jump level 2 (4 when transformed);Normal
+pl0804;STAR HERO;160;520;3;Hero Borg;Short range type;B;Yes;250/340;3;3;5;5;Air jump level 3;Normal
+pl0805;JELLY DIVER;43;280;1;Knuckle Borg;Short range type;D;Yes;180/225;2;2;4;5;Air jump level 3;Normal
+pl0806;COPY MAN;44;350;1;Knuckle Borg;Short range type;C;Yes;200/290;1;1;0;6;Air jump level 3;Normal
+pl0807;DEATH BORG TAU;101;90;1;Death Borg;Short range type;C;Yes;60/78;1;0;3;5;Air jump level 3;Fast
+pl0808;CYBER HERO;123;450;2;Hero Borg;Almighty type;B;No;200/245;3;5;5;4;Air jump level 3;Normal
+pl0809;WALKING BOMB;45;400;2;Knuckle Borg;Short range type;B;No;50/68;1;0;10;6;Air jump level 3;Normal
+pl080a;METAL HERO;124;380;2;Hero Borg;Short range type;C;No;200/290;2;0;3;4;Air jump level 2 (4 when transformed);Normal
+pl080c;PLANET HERO;161;530;3;Hero Borg;Short range type;B;No;250/340;3;3;5;5;Air jump level 3;Normal
+pl080d;TAR DIVER;125;340;2;Knuckle Borg;Short range type;C;No;180/225;3;2;4;5;Air jump level 3;Normal
+pl080e;JACK;11;280;4;Knuckle Borg;Short range type;A;No;200/245;3;2;4;5;Air jump level 3;Normal
+pl080f;DEATH BORG OMICRON;98;350;1;Death Borg;Short range type;C;No;180/225;1;1;0;6;Air jump level 3;Fast
+pl0900;ANGEL NURSE;47;240;1;Nurse Borg;Support type;D;Yes;150/195;2;1;1;3;Air jump level 3;Normal
+pl0901;BUG WITCH;126;300;2;Wizard Borg;Support type;C;Yes;150/195;2;1;1;3;Air jump level 3;Normal
+pl0902;PATRA WITCH;48;150;1;Wizard Borg;Support type;D;Yes;150/195;2;1;1;3;Air jump level 3;Normal
+pl0903;GUARD WITCH;49;250;1;Wizard Borg;Support Type;D;Yes;150/195;5;1;1;3;Air jump level 3;Normal
+pl0904;POP HONEY;50;250;1;Idol Borg;Support type;D;Yes;150/195;2;1;1;3;Air jump level 3;Normal
+pl0906;DEATH BORG THETA;90;100;1;Death Borg;Support type;C;Yes;50/68;1;1;1;2;Air jump level 3;Fast
+pl0907;BASTET WITCH;127;230;2;Wizard Borg;Support type;C;No;150/195;2;1;1;3;Air jump level 3;Normal
+pl0908;ANGEL RESCUE;128;300;2;Nurse Borg;Support type;C;No;180/225;2;1;1;3;Air jump level 3;Normal
+pl0909;ISIS WITCH;129;190;2;Wizard Borg;Support type;C;No;180/225;2;1;1;3;Air jump level 3;Normal
+pl090a;SHIELD WITCH;51;330;1;Wizard Borg;Support type;C;No;180/225;6;1;1;3;Air jump level 3;Normal
+pl090b;DEATH BORG IOTA;91;190;1;Death Borg;Short range type;C;No;70/88;1;1;0;2;Air jump level 3;Fast
+pl090c;SEKHMET WITCH;162;330;3;Wizard Borg;Support type;B;No;180/225;2;1;1;3;Air jump level 3;Normal
+pl090d;NAO;3;240;4;Nurse Borg;Support type;A;No;180/225;2;1;1;3;Air jump level 3;Normal
+pl0a00;WING SOLDIER;52;200;1;Wing Borg;Speed type;D;Yes;150/195;2;2;2;8;Boost jump;Normal
+pl0a01;JET HERO;46;350;1;Hero Borg;Speed type;D;Yes;160/205;3;2;4;8;Boost jump;Normal
+pl0a02;DEMON WING;187;610;2;Demon Borg;Speed type;B;Yes;210/255;2;3;3;8;Boost jump;Normal
+pl0a03;BEAM WING BLUE;130;350;2;Wing Borg;Speed type;C;Yes;200/245;3;4;4;8;Boost jump;Normal
+pl0a04;ANUBIS WING;163;750;3;Wing Borg;Almighty type;B;Yes;400/490;5;6;4;8;Boost jump;Normal
+pl0a05;DEATH BORG SIGMA;99;100;1;Death Borg;Speed type;C;Yes;50/68;1;1;2;8;Boost jump;Fast
+pl0a06;BEAM WING RED;131;400;2;Wing Borg;Speed type;C;No;200/245;3;4;4;8;Boost jump;Normal
+pl0a07;DEATH WING;188;550;4;Demon Borg;Almighty type;A;No;200/245;2;5;4;8;Boost jump;Normal
+pl0a08;BLADE WING;132;650;2;Wing Borg;Almighty type;C;No;400/490;5;5;4;8;Boost jump;Normal
+pl0a09;GARUDA;10;750;4;Wing Borg;Almighty type;A;No;450/540;5;6;4;8;Boost jump;Normal
+pl0a0a;DEATH BORG SIGMA II;100;180;1;Death Borg;Speed type;C;No;50/68;1;2;2;8;Boost jump;Fast
+pl0b00;QUICK VALKRIE;53;230;1;Angel Borg;Support type;C;Yes;120/165;2;2;2;8;Boost jump;Normal
+pl0b01;ICE VALKRIE;54;240;1;Angel Borg;Support type;D;Yes;120/165;2;2;2;8;Boost jump;Normal
+pl0b02;TORNADO VALKRIE;55;200;1;Angel Borg;Support type;D;Yes;130/175;2;2;2;8;Boost jump;Normal
+pl0b03;WIND VALKRIE;56;200;1;Angel Borg;Support type;D;Yes;130/175;2;2;2;8;Boost jump;Fast
+pl0b04;RING VALKRIE;57;280;1;Angel Borg;Speed type;D;Yes;180/225;2;2;2;8;Boost jump;Normal
+pl0b05;DEATH BORG LAMBDA;92;100;1;Death Borg;Speed type;C;Yes;50/68;1;1;2;8;Boost jump;Fast
+pl0b06;SLOW VALKRIE;133;350;2;Angel Borg;Support type;B;No;120/165;2;2;2;8;Boost jump;Normal
+pl0b07;DEATH BORG LAMBDA II;93;150;1;Death Borg;Speed type;C;No;50/68;1;2;2;8;Boost jump;Fast
+pl0c00;NORMAL TANK;64;450;1;Tank Borg;Long range type;D;Yes;300/390;4;5;0;3;Boost jump;Normal
+pl0c01;GATLING TANK;65;690;1;Tank Borg;Long range type;D;Yes;320/410;4;6;0;3;Boost jump;Normal
+pl0c02;BEAM TANK;172;780;3;Tank Borg;Almighty type;B;Yes;400/490;5;5;4;4;Boost jump;Normal
+pl0c04;ULTIMATE CANNON;145;1500;4;Tank Borg;Long range type;A;Yes;500/590;6;10;0;1;Boost jump;Normal
+pl0c05;ICBM TANK;68;1000;2;Tank Borg;Long range type;C;Yes;200/245;3;10;0;2;Boost jump;Normal
+pl0c06;LEOPARD;7;450;4;Tank Borg;Long range type;A;No;330/420;4;5;0;3;Boost jump;Normal
+pl0d00;BLUE STRIKER;70;200;1;Air Borg;Speed type;D;Yes;150/168;2;4;0;10;N/A;Fast
+pl0d01;RED ATTACKER;147;290;2;Air Borg;Speed type;D;Yes;150/195;2;4;0;9;N/A;Fast
+pl0d02;CARRIER HELICOPTER;73;390;1;Air Borg;Support type;D;Yes;200/245;2;3;0;6;N/A;Fast
+pl0d03;FLYING SAUCER;195;600;1;Air Borg;Speed type;C;Yes;250/295;3;4;0;10;N/A;Fast
+pl0d04;ORANGE FIGHTER;74;200;1;Air Borg;Speed type;D;No;150/168;2;4;0;10;N/A;Fast
+pl0d05;VIOLET ATTACKER;75;290;1;Air Borg;Speed type;D;No;150/168;2;3;0;9;N/A;Fast
+pl0d06;DEATH ICBM;109;400;2;Death Borg;Speed type;B;No;100/118;2;0;10;9;N/A;Fast
+pl0d07;DEATH BOMB;108;20;1;Death Borg;Short range type;C;No;30/39;1;0;3;5;N/A;Fast
+pl0e00;SIRIUS;173;1000;3;Fortress Borg;Long range type;C;Yes;2000/2900;9;7;0;1;N/A;Normal
+pl0e01;BEAM SATELLITE;148;800;2;Fortress Borg;Long range type;C;Yes;1000/1450;9;6;0;2;N/A;Normal
+pl0e02;DEATH SAUCER;196;1000;2;Fortress Borg;Long range type;B;Yes;2000/2900;9;7;0;2;N/A;Normal
+pl0e03;ANTARES;174;1300;3;Fortress Borg;Long range type;C;Yes;2000/2900;9;6;0;1;N/A;Normal
+pl0e04;GALACTIC EMPEROR;205;3000;N/A;Fortress Borg;Long range type;A;Yes;2000/6500;10;8;0;0;N/A;Normal
+pl0e05;DEATH ARC;12;1000;4;Fortress Borg;Long range type;A;No;2000/2900;9;7;0;1;N/A;Normal
+pl0f00;DEATH BORG MU;94;60;1;Death Borg;Long range type;C;Yes;20/29;1;1;0;5;N/A;Fast
+pl0f01;DEATH BORG NU;95;40;1;Death Borg;Long range type;C;Yes;30/48;1;1;0;2;Boost jump;Fast
+pl0f02;DEATH BORG NU II;96;50;1;Death Borg;Long range type;C;No;40/58;1;1;0;2;Boost jump;Fast
+pl0f03;DEATH BORG NU III;97;70;1;Death Borg;Long range type;C;No;50/68;1;2;0;2;Boost jump;Fast
+pl0f04;DEATH BORG CHI;102;80;1;Death Borg;Long range type;C;No;40/58;1;1;0;2;Boost jump;Fast
+pl0f05;ROACH;189;30;1;Bug Borg;Short range type;D;No;60/78;1;1;0;2;Air jump level 1;Fast
+pl0f06;DEATH EYE;107;10;1;Death Borg;Long range type;C;No;30/48;1;1;0;2;Air jump level 3;Fast
