@@ -9,7 +9,7 @@ import re
 import time
 
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -296,7 +296,7 @@ class Afs:
         config = ConfigParser(allow_no_value=True) # allow_no_value to allow adding comments
         config.optionxform = str # makes options case sensitive
         config.add_section("Default")
-        config.set("Default", "# Documentation available here: https://github.com/Virtual-World-RE/NeoGF/blob/main/README.md#afs_rebuildconf--afs_rebuildcsv")
+        config.set("Default", "# Documentation available here: https://github.com/Virtual-World-RE/NeoGF/tree/main/afstool#afs_rebuildconf")
         config.set("Default", "AFS_MAGIC", f"0x{self.__get_magic().hex()}")
         config.set("Default", "files_rebuild_strategy", "mixed")
         config.set("Default", "filename_directory", "True" if self.__filenamedirectory else "False")
