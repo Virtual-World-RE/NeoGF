@@ -3,23 +3,46 @@ from pathlib import Path
 import logging
 
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
 
 
+#########################################################################
+#   FUNCTION: align_offset
+#         IN: Offset to align (file offset to place inside the iso for instance)
+#         IN: align wich could change with some GCM
+#         OUT: upper rouded offset aligned using the align value
+#   DESCRIPTION  Give the upper rounded offset by the align value
+#########################################################################
 def align_offset(offset:int, align:int):
     if offset % align != 0:
         offset += align - (offset % align)
     return offset
 
 
+#########################################################################
+#   class: Fst
+#   DESCRIPTION  This could be changed te be an Enum FlagInt
+#########################################################################
 class Fst:
     TYPE_FILE = 0
     TYPE_DIR = 1
 
 
+#########################################################################
+#   Interface: Node
+#   Constructor: name of the file or folder
+#   DESCRIPTION  Used to be herited by File and Folder classes
+#         It groups common properties and allow an FST rebuid:
+#         FST use a base_name block and name offsets relative to it for 
+#         all entries: Files or Folders. So we handle name in this interface.
+#       name offset will be set during the FstTree.__prepare() aftet all
+#         of the three elements are added.
+#       Also every File and Folder get an ID. This ID is important when
+#         rebuilding the FST with folders (next dir, parent dir) ...
+#########################################################################
 class Node:
     __id = None
     __name = None
@@ -33,6 +56,13 @@ class Node:
     def set_name_offset(self, name_offset:int): self.__name_offset = name_offset
 
 
+#########################################################################
+#   class: File
+#   Constructor: name of the file and size
+#   DESCRIPTION  Use a global class attribute TYPE_FILE and store necessary
+#         informations format it's FST 12 bytes entry
+#         This properties are type/name_offset/gcm offset/size
+#########################################################################
 class File(Node):
     __type = Fst.TYPE_FILE
     __size = None
@@ -50,6 +80,14 @@ class File(Node):
         return self.type().to_bytes(1, "big") + self.name_offset().to_bytes(3, "big") + self.offset().to_bytes(4, "big") + self.size().to_bytes(4, "big")
 
 
+#########################################################################
+#   class: Folder
+#   Constructor: name of the file and parent
+#   DESCRIPTION  Use a global class attribute TYPE_DIR and store necessary
+#         informations to format it's FST 12 bytes entry
+#         this class is intended to hold the tree with multiple childs
+#         and one parent only. The next dir is the total number of childs + 1
+#########################################################################
 class Folder(Node):
     __type = Fst.TYPE_DIR
     __parent = None
@@ -77,16 +115,30 @@ class Folder(Node):
         return self.type().to_bytes(1, "big") + self.name_offset().to_bytes(3, "big") + self.parent().id().to_bytes(4, "big") + self.next_dir().to_bytes(4, "big")
 
 
+#########################################################################
+#   class: FstTree
+#   Constructor: root_path (the part with folder that are out of the tree)
+#                fst_offset (to know where is the current min offset before 
+#                adding the fst and name_block length)
+#                align (It could change in some GCM)
+#   DESCRIPTION  FstTree is responsible for creating and formating the FST and name_block
+#         We store a root Node that is a special Folder
+#########################################################################
 class FstTree(Fst):
+    # When we walk recursivly in a path we don't wan't to add theirs out parents so it allow to stop at the folder we choose as root
     __root_path_length = None
     __root_node = None
+    # We start at root-node with id=0
     __current_id = 0
+    # We will align this offset to the next available place after new packed file
     __current_file_offset = None
     __align = None
     __fst_block = None
     __name_block = None
-    __nameblock_length = None # Used to find min file_offset when fst is at the end of the iso beginning
+    # Used to find min file_offset when fst is at the end of the iso beginning (otherweise we can't know the first available offset)
+    __nameblock_length = None
     def __init__(self, root_path:Path, fst_offset:int, align:int = 4):
+        # as said before we don't want to add parents folder that don't are used in the folder we are packing
         self.__root_path_length = len(root_path.parts)
         self.__root_node = Folder(root_path.name, None)
         self.__align = align
@@ -96,6 +148,7 @@ class FstTree(Fst):
         self.__current_file_offset = fst_offset
     def __str__(self):
         return self.__to_str(self.__root_node)
+    # Recursive Tree printing for debug
     def __to_str(self, node:Node, depth=0):
         result = (depth * "    ") + str(node) +"\n"
         if node.type() == FstTree.TYPE_DIR:
@@ -106,6 +159,7 @@ class FstTree(Fst):
     def __get_fst_length(self):
         self.__generate_nameblock_length()
         return align_offset(self.__count_childs(self.__root_node)*12 + 12 + self.__nameblock_length, self.__align)
+    # Recursive walk into the tree to get total name_block length
     def __generate_nameblock_length(self, node:Node = None):
         if node is None:
             node = self.__root_node
@@ -114,17 +168,25 @@ class FstTree(Fst):
         if node.type() == FstTree.TYPE_DIR:
             for child in node.childs():
                 self.__generate_nameblock_length(child)
+    # We populate recursivly every Nodes with required informations for formating and
+    # generate the name_block and fst_block
     def __prepare(self, node:Node = None):
         name_offset = 0
+        # For root Node we build the nameblock with null trailing byte
+        # For others we build the name_block and update the name_offset
         if node is None:
             node = self.__root_node
         else:
             name_offset = len(self.__name_block)
             self.__name_block += node.name().encode("utf-8")+b"\x00"
+        # We set the name_offset, the id, we increment for next walked node
         node.set_name_offset(name_offset)
         node.set_id(self.__current_id)
         self.__current_id += 1
         
+        # If it's a directory we have to count childs to set nextdir
+        # If it's a file we have to set the offset and add length aligned to it for finding next available offset
+        # At the end we add to the fst_block our formated Node
         if node.type() == FstTree.TYPE_DIR:
             node.set_next_dir(self.__current_id + self.__count_childs(node))
             if node == self.__root_node:
@@ -143,6 +205,9 @@ class FstTree(Fst):
             if child.type() == FstTree.TYPE_DIR:
                 count += self.__count_childs(child)
         return count + len(node.childs())
+    # Add a path with each folder as Folder class and the File as a leave
+    # We take care to set parent and childs for folder also necessary informations
+    # name / size ...
     def add_node_by_path(self, node_path:Path):
         parent = self.__root_node
         node = None
@@ -154,12 +219,22 @@ class FstTree(Fst):
         else:
             node = Folder(node_path.name, parent)
         parent.add_child(node)
+    # We generate the FST
+    # the hard part Here is that we have to know the result before
+    # knowing where we can begin to add files
     def generate_fst(self):
         self.__current_file_offset += self.__get_fst_length()
         self.__prepare()
         return self.__fst_block + self.__name_block
 
 
+#########################################################################
+#   class: BootBin
+#   Constructor: datas (bytes or bytearray id edit is needed) of the boot.bin
+#   DESCRIPTION  BootBin group all operations related to the boot.bin system file
+#       using this class avoid errors and it's easier elsewhere
+#       this groupment add meaning to hex values but we can also patch it
+#########################################################################
 class BootBin:
     LEN = 0x440
     DOLOFFSET_OFFSET = 0x420
@@ -192,6 +267,12 @@ class BootBin:
         self.__data[BootBin.MAXFSTLEN_OFFSET:BootBin.MAXFSTLEN_OFFSET+4] = size.to_bytes(4, "big")
 
 
+#########################################################################
+#   class: Dol
+#   DESCRIPTION  Dol is used to find the dol size and group data
+#   Constructor: dol header datas (bytes)
+#        adding meaning to hex values and allow to get it's size
+#########################################################################
 class Dol:
     HEADER_LEN = 0x100
     HEADER_SECTIONLENTABLE_OFFSET = 0x90
@@ -204,12 +285,18 @@ class Dol:
 
 
 # https://sudonull.com/post/68549-Gamecube-file-system-device
+#########################################################################
+#   class: Gcm
+#   Constructor: name of the file or folder
+#   DESCRIPTION  Gcm handle all operations needed by the command parser
+#########################################################################
 class Gcm:
     BI2BIN_LEN = 0x2000
     APPLOADER_HEADER_LEN = 0x20
     APPLOADER_OFFSET = 0x2440
     APPLOADERSIZE_OFFSET = 0x2454
     DVD_MAGIC = b"\xC2\x33\x9F\x3D"
+    # unpack takes an GCM/iso and unpack it in a folder
     def unpack(self, iso_path:Path, folder_path:Path):
         with iso_path.open("rb") as iso_file:
             bootbin = BootBin(iso_file.read(BootBin.LEN))
@@ -298,6 +385,7 @@ class Gcm:
                     (currentdir_path / name).write_bytes( iso_file.read(filesize) )
 
                     logging.debug(f"{iso_path}(0x{fileoffset:x}:0x{fileoffset + filesize:x}) -> {currentdir_path / name}")
+    # pack takes a folder unpacked by the pack command and pack it in a GCM/iso file
     def pack(self, folder_path:Path, iso_path:Path = None):
         if iso_path is None:
             iso_path = folder_path.parent / Path(folder_path.name).with_suffix(".iso")
@@ -370,6 +458,9 @@ class Gcm:
                     logging.debug(f"{currentdir_path / name} -> {iso_path}(0x{file_offset:x}:0x{file_offset + file_len:x})")
                     iso_file.seek(file_offset)
                     iso_file.write( (currentdir_path / name).read_bytes() )
+    # rebuild FST generate a new file system by using all files in the root folder
+    # it also patch boot.bin caracteristics and apploader.img or also file system changes.
+    # Game dol use filenames to find files so be carrefull when changing the root filesystem
     def rebuild_fst(self, folder_path:Path, align:int):
         root_path = folder_path / "root"
         sys_path = folder_path / "sys"
@@ -403,6 +494,8 @@ class Gcm:
         bootbin.set_max_fst_len(fst_size)
 
         (sys_path / "boot.bin").write_bytes(bootbin.data())
+    # get_sys_from_folder allow to load system from an unpacked GCM/iso folder
+    # it returns informations for the stats command
     def __get_sys_from_folder(self, file_path:Path):
         sys_path = file_path / "sys"
         bootbin = BootBin((sys_path / "boot.bin").read_bytes())
@@ -410,6 +503,8 @@ class Gcm:
         dol_len = (sys_path / "boot.dol").stat().st_size
         fstbin_data = (sys_path / "fst.bin").read_bytes()
         return (bootbin, apploader_size, dol_len, fstbin_data)
+    # get_sys_from_file allow to load system from a GCM/iso file
+    # it returns informations for the stats command
     def __get_sys_from_file(self, file_path:Path):
         bootbin = None
         apploader_size = None
@@ -426,6 +521,9 @@ class Gcm:
             iso_file.seek( bootbin.fstbin_offset() )
             fstbin_data = iso_file.read(bootbin.fstbin_len())
         return (bootbin, apploader_size, dol_len, fstbin_data)
+    # Stats print SYS files informations
+    # global memory mapping
+    # empty spaces inside the GCM/iso
     def stats(self, path:Path, align:int = 4):
         (bootbin, apploader_size, dol_len, fstbin_data) = self.__get_sys_from_folder(path) if path.is_dir() else self.__get_sys_from_file(path)
 
