@@ -9,18 +9,23 @@ import re
 import time
 
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
 
 
-# Not tested:
+# Creating afstool.py was a challenge because there is many implementations
+# and configurations possible. In one hand allowing to configure the rebuild
+# was usefull but in another it was also important to control errors generated
+# by those conf files. Using custom exceptions was necessary.
+
+# Not tested by afstest.py:
 class AfsInvalidFileLenError(Exception): pass
 class AfsEmptyAfsError(Exception): pass
 class AfsInvalidFilenameDirectoryLengthError(Exception): pass
 class AfsInvalidAfsFolderError(Exception): pass
-# Tested:
+# Tested by afstest.py:
 class AfsInvalidMagicNumberError(Exception): pass
 class AfsInvalidFilesRebuildStrategy(Exception): pass
 class AfsFilenameDirectoryValueError(Exception): pass
@@ -40,8 +45,21 @@ class AfsEmptyBlockValueError(Exception): pass
 class AfsEmptyBlockAlignError(Exception): pass
 
 
+#########################################################################
+#   class: FilenameResolver
+#   Constructor: system path of the unpack folder
+#   DESCRIPTION
+#       Use sys/filename_resolver.csv to resolve filename to their index
+#       in the TOC. Allow also to rename files since the FD and the TOC
+#       are not rebuild during pack.
+#       The resolver is necessary in multiple cases:
+#       * When multiple packed files have the same name in the FD
+#       * When there is no FD
+#       * When names contains invalid path operator (not implemented yet)
+#########################################################################
 class FilenameResolver:
     __sys_path = None
+    # name_tuples: {(unpacked_filename, toc_index), ... }
     __names_tuples = None
     __resolve_buffer = ""
     __separator = '/'
@@ -49,17 +67,20 @@ class FilenameResolver:
         self.__sys_path = sys_path
         self.__names_tuples = {}
         self.__load()
+    # Load name_tuples if there is a csv
     def __load(self):
         if (self.__sys_path / "filename_resolver.csv").is_file():
             self.__resolve_buffer = (self.__sys_path / "filename_resolver.csv").read_text()
             for line in self.__resolve_buffer.split('\n'):
                 name_tuple = line.split(self.__separator)
                 self.__names_tuples[name_tuple[1]] = int(name_tuple[0])
+    # Save the resolve_buffer containing formated name_tuples to the csv if not empty
     def save(self):
         if len(self.__resolve_buffer) > 0:
             logging.info(f"Writting {Path('sys/filename_resolver.csv')}")
             (self.__sys_path / "filename_resolver.csv").write_text(self.__resolve_buffer[:-1])
-    # resolve generate a unique filename when unpacking
+    # Resolve generate a unique filename when unpacking
+    # return the filename or new generated filename if duplicated
     def resolve_new(self, fileindex:int, filename:str):
         if filename in self.__names_tuples:
             i = 1
@@ -72,11 +93,12 @@ class FilenameResolver:
             return new_filename
         self.__names_tuples[filename] = fileindex
         return filename
-    # Add new entry forcing the unpacked_filename²
+    # Add new entry forcing the unpacked_filename
     def add(self, fileindex:int, unpacked_filename:str):
         self.__names_tuples[unpacked_filename] = fileindex
         self.__resolve_buffer += f"{fileindex}{self.__separator}{unpacked_filename}\n"
-    # return generated filename if it exist else filename
+    # return previously generated filename using the index of the file in the TOC
+    # else return filename
     def resolve_from_index(self, fileindex:int, filename:str):
         for filename_key, fileindex_value in self.__names_tuples.items():
             if fileindex_value == fileindex:
@@ -85,14 +107,23 @@ class FilenameResolver:
 
 
 # http://wiki.xentax.com/index.php/GRAF:AFS_AFS
+#########################################################################
+#   class: Afs
+#   DESCRIPTION  Afs handle all operations needed by the command parser
+#########################################################################
 class Afs:
     MAGIC_00 = b"AFS\x00"
     MAGIC_20 = b"AFS\x20"
+    # The header and each files are aligned to 0x800
     ALIGN = 0x800
+    # magic number and number of files
     HEADER_LEN = 8
+    # Each entry in the FD have 32 chars for filename and the rest for date and last_fd_attribute
     FILENAMEDIRECTORY_ENTRY_LEN = 0x30
     __file_count = None
+    # this offset is at the en of the TOC and sometimes there is pad
     __filenamedirectory_offset_offset = None
+    # if there is a FD at the end of the AFS
     __filenamedirectory_offset = None
     __filenamedirectory_len = None
     __filenamedirectory = None
@@ -145,14 +176,24 @@ class Afs:
             if updated_fdlast_index < self.__file_count:
                 self.__filenamedirectory[updated_fdlast_index*Afs.FILENAMEDIRECTORY_ENTRY_LEN+44:updated_fdlast_index*Afs.FILENAMEDIRECTORY_ENTRY_LEN+48] = self.__get_file_len(fileindex).to_bytes(4, "little")
         # fd_last_attribute_type == unknown
+    # Add padding to align datas to next block
     def __pad(self, data:bytes):
         if len(data) % Afs.ALIGN != 0:
             data += b"\x00" * (Afs.ALIGN - (len(data) % Afs.ALIGN))
         return data
+    # We can't know if there is a FD without searching and loading data for it
+    # So we have to clean loaded data if values are invalid
     def __clean_filenamedirectory(self):
         self.__filenamedirectory = None
         self.__filenamedirectory_offset = None
         self.__filenamedirectory_len = None
+    # Load the TOC and the FD from an AFS file
+    # this operation is difficult because there are many cases possible:
+    # is there or not a FD?
+    # is there padding at the end of files offset/length list in the TOC?
+    # So we have to search and control values and test it for errors
+    # If there is no FD self.__filename_directory is None
+    # return True if there is a FD else None
     def __loadsys_from_afs(self, afs_file, afs_len:int):
             self.__tableofcontent = afs_file.read(Afs.HEADER_LEN)
             if self.__get_magic() not in [Afs.MAGIC_00, Afs.MAGIC_20]:
@@ -162,15 +203,20 @@ class Afs:
             tableofcontent_len = len(self.__tableofcontent)
 
             offset = tableofcontent_len
+            # Now we have read the TOC and seeked to the end of it
+            # next values could be FD offset and length if there is one
 
+            # So we read 4 bytes to test if there is padding or not
             tmp_block = int.from_bytes(afs_file.read(4), "little")
             if tmp_block != 0:
                 self.__filenamedirectory_offset_offset = offset
                 self.__filenamedirectory_offset = tmp_block
+            # Here it could be padding
+            # If filenamedirectory_offset is not directly after the files offsets and lens
+            # --> we search the next uint32 != 0
             else:
-                # If filenamedirectory_offset is not directly after the files offsets and lens
-                # --> we search the next uint32 != 0
                 offset += 4
+                # We read by 0x800 blocks for better performances
                 block_len = 0x800
                 tmp_block = afs_file.read(block_len)
                 while tmp_block:
@@ -207,8 +253,10 @@ class Afs:
                     return False
 
             afs_file.seek(tableofcontent_len)
+            # Here FD is valid and we read it's length
             self.__tableofcontent += afs_file.read(self.__filenamedirectory_offset_offset+8 - tableofcontent_len)
             return True
+    # Load the TOC and FD from an unpacked afs. This time it's easier
     def __loadsys_from_folder(self, sys_path:Path):
         self.__tableofcontent = bytearray( (sys_path / "tableofcontent.bin").read_bytes() )
         self.__file_count = self.__get_file_count()
@@ -221,6 +269,7 @@ class Afs:
             self.__filenamedirectory_len = self.__get_filenamedirectory_len()
             if self.__filenamedirectory_len != len(self.__filenamedirectory):
                 raise AfsInvalidFilenameDirectoryLengthError("Error - Tableofcontent filenamedirectory length does not match real filenamedirectory length.")
+    # Print is used for stats
     def __print(self, title:str, lines_tuples, columns:list = list(range(7)), infos:str = ""):
         stats_buffer = "#"*100+f"\n# {title}\n"+"#"*100+f"\n{infos}|"+"-"*99+"\n"
         if 0 in columns: stats_buffer += "| Index    ";
@@ -234,6 +283,7 @@ class Afs:
         for line in lines_tuples:
             stats_buffer += line if type(line) == str else "| "+" | ".join(line)+"\n"
         print(stats_buffer, end='')
+    # This method is used to check the next file offset and control if there is overlapping during pack
     # end offset not included (0,1) -> len=1
     # return a list of offsets where files and sys files begin
     def __get_offsets_map(self):
@@ -256,6 +306,7 @@ class Afs:
             last_tuple = offsets_tuple
             offsets_map[i] = offsets_tuple[0]
         return offsets_map
+    # This method is used for stats command
     # end offset not included (0,1) -> len=1
     def __get_formated_map(self):
         files_map = [("SYS TOC ", "00000000", f"{len(self.__tableofcontent):08x}", f"{len(self.__tableofcontent):08x}", "SYS TOC"+' '*12, "SYS TOC ", "SYS TOC")]
@@ -273,6 +324,13 @@ class Afs:
                 f"{self.__filenamedirectory_offset + len(self.__filenamedirectory):08x}", \
                 f"{len(self.__filenamedirectory):08x}", "SYS FD"+' '*13, "SYS FD  ", "SYS FD"))
         return files_map
+    # At this end of the FD there is 4 bytes used for different purposes
+    # To keep data we search what kind of data it is:
+    # return one of this values:
+    #    * length
+    #    * offset-length
+    #    * 0x123 # (hex constant)
+    #    * unknwon
     def __get_fdlast_type(self):
         # Try to get the type of FD last attribute
         length_type = True
@@ -292,6 +350,11 @@ class Afs:
         if constant_type: return f"0x{constant_type:x}"
         logging.info("Unknown FD last attribute type.")
         return "unknown"
+    # At the end of unpack we use this function to write the 2 files:
+    #     * "sys/afs_rebuild.csv"
+    #     * "sys/afs_rebuild.csv"
+    # this file will contains every parameters of the AFS to allow exact pack copy when possible (fd_last_atribute != unknown)
+    # see documentation for further informations
     def __write_rebuild_config(self, sys_path:Path, resolver:FilenameResolver):
         config = ConfigParser(allow_no_value=True) # allow_no_value to allow adding comments
         config.optionxform = str # makes options case sensitive
@@ -315,6 +378,7 @@ class Afs:
             rebuild_csv += f"{unpacked_filename}/0x{i:x}/0x{self.__get_file_offset(i):x}/{filename}\n"
         if len(rebuild_csv) > 0:
             (sys_path / "afs_rebuild.csv").write_text(rebuild_csv[:-1])
+    # Method used to unpack an AFS inside a folder
     def unpack(self, afs_path:Path, folder_path:Path):
         sys_path = folder_path / "sys"
         root_path = folder_path / "root"
@@ -351,6 +415,9 @@ class Afs:
             if self.__filenamedirectory:
                 resolver.save()
         self.__write_rebuild_config(sys_path, resolver)
+    # Methood used to pack un unpacked folder inside a new AFS file
+    # for a file pack will use the next file offset as max file length an raise an exception if the length overlap
+    # pack keep FD and TOC inchanged except for file length and FD dates updates
     def pack(self, folder_path:Path, afs_path:Path = None):
         if afs_path is None:
             afs_path = folder_path / Path(folder_path.name).with_suffix(".afs")
@@ -401,6 +468,10 @@ class Afs:
             logging.debug(f"Packing {sys_path / 'tableofcontent.bin'} at the beginning of the AFS.")
             afs_file.seek(0)
             afs_file.write(self.__tableofcontent)
+    # Rebuild will use following config files:
+    #     * "sys/afs_rebuild.csv"
+    #     * "sys/afs_rebuild.csv"
+    # It will rebuild the unpacked AFS sys files (TOC and FD) in the sys folder
     def rebuild(self, folder_path:Path):
         config = ConfigParser()
         root_path = folder_path / "root"
@@ -596,6 +667,10 @@ class Afs:
             (sys_path / "filenamedirectory.bin").write_bytes(self.__filenamedirectory)
         logging.info(f"Writting {Path('sys/tableofcontent.bin')}")
         (sys_path / "tableofcontent.bin").write_bytes(self.__tableofcontent)
+    # Stats will print the AFS stats:
+    #   Get full informations about header, TOC, FD, full memory mapping 
+    #   sorted by offsets (files and sys files), addresses space informations, 
+    #   and duplicated filenames grouped by filenames.
     def stats(self, path:Path):
         if path.is_file():
             with path.open("rb") as afs_file:
