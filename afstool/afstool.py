@@ -9,7 +9,7 @@ import re
 import time
 
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -59,22 +59,22 @@ class AfsEmptyBlockAlignError(Exception): pass
 #########################################################################
 class FilenameResolver:
     __sys_path = None
-    # name_tuples: {(unpacked_filename, toc_index), ... }
-    __names_tuples = None
+    # names_dict: {unpacked_filename: toc_index, ... }
+    __names_dict = None
     __resolve_buffer = ""
     __separator = '/'
     def __init__(self, sys_path:Path):
         self.__sys_path = sys_path
-        self.__names_tuples = {}
+        self.__names_dict = {}
         self.__load()
-    # Load name_tuples if there is a csv
+    # Load names_dict if there is a csv
     def __load(self):
         if (self.__sys_path / "filename_resolver.csv").is_file():
             self.__resolve_buffer = (self.__sys_path / "filename_resolver.csv").read_text()
             for line in self.__resolve_buffer.split('\n'):
                 name_tuple = line.split(self.__separator)
-                self.__names_tuples[name_tuple[1]] = int(name_tuple[0])
-    # Save the resolve_buffer containing formated name_tuples to the csv if not empty
+                self.__names_dict[name_tuple[1]] = int(name_tuple[0])
+    # Save the resolve_buffer containing formated names_dict to the csv if not empty
     def save(self):
         if len(self.__resolve_buffer) > 0:
             logging.info(f"Writting {Path('sys/filename_resolver.csv')}")
@@ -82,25 +82,25 @@ class FilenameResolver:
     # Resolve generate a unique filename when unpacking
     # return the filename or new generated filename if duplicated
     def resolve_new(self, fileindex:int, filename:str):
-        if filename in self.__names_tuples:
+        if filename in self.__names_dict:
             i = 1
             new_filename = f"{Path(filename).stem} ({i}){Path(filename).suffix}"
-            while new_filename in self.__names_tuples:
+            while new_filename in self.__names_dict:
                 i+=1
                 new_filename = f"{Path(filename).stem} ({i}){Path(filename).suffix}"
-            self.__names_tuples[new_filename] = fileindex
+            self.__names_dict[new_filename] = fileindex
             self.__resolve_buffer += f"{fileindex}{self.__separator}{new_filename}\n"
             return new_filename
-        self.__names_tuples[filename] = fileindex
+        self.__names_dict[filename] = fileindex
         return filename
     # Add new entry forcing the unpacked_filename
     def add(self, fileindex:int, unpacked_filename:str):
-        self.__names_tuples[unpacked_filename] = fileindex
+        self.__names_dict[unpacked_filename] = fileindex
         self.__resolve_buffer += f"{fileindex}{self.__separator}{unpacked_filename}\n"
     # return previously generated filename using the index of the file in the TOC
     # else return filename
     def resolve_from_index(self, fileindex:int, filename:str):
-        for filename_key, fileindex_value in self.__names_tuples.items():
+        for filename_key, fileindex_value in self.__names_dict.items():
             if fileindex_value == fileindex:
                 return filename_key
         return filename
@@ -121,7 +121,7 @@ class Afs:
     # Each entry in the FD have 32 chars for filename and the rest for date and last_fd_attribute
     FILENAMEDIRECTORY_ENTRY_LEN = 0x30
     __file_count = None
-    # this offset is at the en of the TOC and sometimes there is pad
+    # this offset is at the end of the TOC and sometimes there is pad
     __filenamedirectory_offset_offset = None
     # if there is a FD at the end of the AFS
     __filenamedirectory_offset = None
@@ -324,7 +324,7 @@ class Afs:
                 f"{self.__filenamedirectory_offset + len(self.__filenamedirectory):08x}", \
                 f"{len(self.__filenamedirectory):08x}", "SYS FD"+' '*13, "SYS FD  ", "SYS FD"))
         return files_map
-    # At this end of the FD there is 4 bytes used for different purposes
+    # At the end of the FD there is 4 bytes used for different purposes
     # To keep data we search what kind of data it is:
     # return one of this values:
     #    * length
@@ -351,7 +351,7 @@ class Afs:
         logging.info("Unknown FD last attribute type.")
         return "unknown"
     # At the end of unpack we use this function to write the 2 files:
-    #     * "sys/afs_rebuild.csv"
+    #     * "sys/afs_rebuild.conf"
     #     * "sys/afs_rebuild.csv"
     # this file will contains every parameters of the AFS to allow exact pack copy when possible (fd_last_atribute != unknown)
     # see documentation for further informations
@@ -416,8 +416,8 @@ class Afs:
                 resolver.save()
         self.__write_rebuild_config(sys_path, resolver)
     # Methood used to pack un unpacked folder inside a new AFS file
-    # for a file pack will use the next file offset as max file length an raise an exception if the length overlap
-    # pack keep FD and TOC inchanged except for file length and FD dates updates
+    # for a file pack will use the next file offset as max file length an raise an exception if the length overflow
+    # pack keep FD and TOC inchanged except for file length, FD dates, fd_last_attribute updates
     def pack(self, folder_path:Path, afs_path:Path = None):
         if afs_path is None:
             afs_path = folder_path / Path(folder_path.name).with_suffix(".afs")
@@ -469,7 +469,7 @@ class Afs:
             afs_file.seek(0)
             afs_file.write(self.__tableofcontent)
     # Rebuild will use following config files:
-    #     * "sys/afs_rebuild.csv"
+    #     * "sys/afs_rebuild.conf"
     #     * "sys/afs_rebuild.csv"
     # It will rebuild the unpacked AFS sys files (TOC and FD) in the sys folder
     def rebuild(self, folder_path:Path):
