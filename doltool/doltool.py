@@ -3,7 +3,7 @@ import logging
 import re
 
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __author__ = "algoflash"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -36,6 +36,40 @@ def remove_intervals_from_interval(interval:list, intervals_to_remove:list):
             interval[1] = interval_to_remove[2]
 
     return result_intervals + [interval]
+
+
+# Parse an ini file and return a list of [ [virtual_address:int, value:bytes], ... ]
+# All ARCodes present in the ini will be enabled without taking care of [ActionReplay_Enabled] section
+# raise an Exception if lines are in invalid format:
+# * empty lines are removed
+# * lines beginning with $ are concidered as comments and are removed
+# * lines beginning with [ are concidered as comments and are removed
+# * others lines have to be in format: "0AXXXXXX XXXXXXXX" with (A=2 or A=4) and X in [0-9a-fA-F]
+def parse_action_replay_ini(path:Path):
+    action_replay_lines = path.read_text().splitlines()
+    pattern = re.compile("^(02|04)([0-9a-zA-Z]{6}) ([0-9a-zA-Z]{8})$")
+    result_list = []
+
+    for action_replay_line in action_replay_lines:
+        if len(action_replay_line) == 0:
+            continue
+        if action_replay_line[0] in ["$", "["]:
+            continue
+        res = pattern.fullmatch(action_replay_line)
+
+        if res is None:
+            raise InvalidIniFileEntryError(f"Error - Arcode has to be in format: '0AXXXXXX XXXXXXXX' with (A=2 or A=4) and X in [0-9a-fA-F] line \"{action_replay_line}\".")
+
+        virtual_address = int("80"+res[2], base=16)
+        bytes_value = None
+        if res[1] == "04":
+            bytes_value = int(res[3], 16).to_bytes(4, "big")
+        elif res[1] == "02":
+            bytes_value = (int(res[3][:4], 16) + 1) * int(res[3][4:], 16).to_bytes(2, "big")
+        else:
+            raise InvalidIniFileEntryError("Error - Arcode has to be in format: '0AXXXXXX XXXXXXXX' with (A=2 or A=4) and X in [0-9a-fA-F] line \"{action_replay_line}\".")
+        result_list.append( (virtual_address, bytes_value) )
+    return result_list
 
 
 class Dol:
@@ -167,53 +201,20 @@ class Dol:
             self.__data[offset: offset + len(virtualaddress_bytes[1])] = virtualaddress_bytes[1]
 
 
-# Parse an ini file and return a list of [ [virtual_address:int, value:bytes], ... ]
-# All ARCodes present in the ini will be enabled without taking care of [ActionReplay_Enabled] section
-# raise an Exception if lines are in invalid format:
-# * empty lines are removed
-# * lines beginning with $ are concidered as comments and are removed
-# * lines beginning with [ are concidered as comments and are removed
-# * others lines have to be in format: "0AXXXXXX XXXXXXXX" with (A=2 or A=4) and X in [0-9a-fA-F]
-def parse_action_replay_ini(path:Path):
-    action_replay_lines = path.read_text().splitlines()
-    pattern = re.compile("^(02|04)([0-9a-zA-Z]{6}) ([0-9a-zA-Z]{8})$")
-    result_list = []
-
-    for action_replay_line in action_replay_lines:
-        if len(action_replay_line) == 0:
-            continue
-        if action_replay_line[0] in ["$", "["]:
-            continue
-        res = pattern.fullmatch(action_replay_line)
-
-        if res is None:
-            raise InvalidIniFileEntryError(f"Error - Arcode has to be in format: '0AXXXXXX XXXXXXXX' with (A=2 or A=4) and X in [0-9a-fA-F] line \"{action_replay_line}\".")
-
-        virtual_address = int("80"+res[2], base=16)
-        bytes_value = None
-        if res[1] == "04":
-            bytes_value = int(res[3], 16).to_bytes(4, "big")
-        elif res[1] == "02":
-            bytes_value = (int(res[3][:4], 16) + 1) * int(res[3][4:], 16).to_bytes(2, "big")
-        else:
-            raise InvalidIniFileEntryError("Error - Arcode has to be in format: '0AXXXXXX XXXXXXXX' with (A=2 or A=4) and X in [0-9a-fA-F] line \"{action_replay_line}\".")
-        result_list.append( (virtual_address, bytes_value) )
-    return result_list
-
-
 def get_argparser():
     import argparse
     parser = argparse.ArgumentParser(description='dol file format utilities - [GameCube] v' + __version__)
     parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
-    #parser.add_argument('-a', '--align', type=int, help='-a=10: alignment of files in the GCM ISO (default value is 4)', default=4)
     parser.add_argument('input_path', metavar='INPUT', help='')
-    parser.add_argument('arg2', metavar='arg2', help='', default=None)
+    parser.add_argument('arg2', metavar='arg2', help='', nargs='?', default=None)
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-s', '--stats', action='store_true', help="-s boot.dol: Get stats about entry point, sections, bss and unused virtual address space.")
-    group.add_argument('-e', '--extract', action='store_true', help="-e boot.dol section_index: Extract a section. index must be between 0 and 17")
-    group.add_argument('-par', '--patch-action-replay', action='store_true', help="-p boot.dol action_replay.ini: Patch initialised data inside the dol with an ini file containing a list of [write] directives. Handle only ARCodes beginning with 04.")
+    group.add_argument('-v2i', '--virtual2image', action='store_true', help="-v2i source.dol virtual_address: Translate a virtual address into a dol offset if this was originaly mapped from data or text. virtual_address has to be in hexadecimal: 80003100.")
+    group.add_argument('-i2v', '--image2virtual', action='store_true', help="-i2b source.dol dol_offset: Translate a dol offset to a virtual address mapped from data or text. dol_offset has to be in hexadecimal: 2000.")
+    group.add_argument('-s', '--stats', action='store_true', help="-s source.dol: Get stats about entry point, sections, bss and unused virtual address space.")
+    group.add_argument('-e', '--extract', action='store_true', help="-e source.dol section_index: Extract a section. index must be between 0 and 17")
+    group.add_argument('-par', '--patch-action-replay', action='store_true', help="-p source.dol action_replay.ini: Patch initialised data inside the dol with an ini file containing a list of [write] directives. Handle only ARCodes beginning with 04.")
     return parser
 
 
@@ -231,7 +232,25 @@ if __name__ == '__main__':
 
     dol = Dol(p_input)
 
-    if args.stats:
+    if args.virtual2image:
+        if args.arg2 is None:
+            raise Exception("Error - Virtual address has to be specified in hexadecimal: 80003000.")
+        virtual_address = int(args.arg2, 16)
+        try:
+            offset = dol.resolve_virtual2img(virtual_address)
+            print(f"Virtual address {virtual_address:08x} is at dol offset {offset:08x}")
+        except InvalidVirtualAddressError:
+            print("This virtual address is not in the dol.")
+    elif args.image2virtual:
+        if args.arg2 is None:
+            raise Exception("Error - dol offset has to be specified in hexadecimal: 1234.")
+        offset = int(args.arg2, 16)
+        try:
+            virtual_address = dol.resolve_img2virtual(offset)
+            print(f"Dol offset {offset:08x} is at virtual address {virtual_address:08x}")
+        except InvalidImgOffsetError:
+            print("This dol offset is invalid.")
+    elif args.stats:
         dol.stats()
     elif args.extract:
         logging.info("### Extract section")
