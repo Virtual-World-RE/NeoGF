@@ -3,7 +3,7 @@ import logging
 import re
 
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -126,14 +126,14 @@ class Dol:
     def resolve_img2virtual(self, offset:int):
         memory_address = None
         for section_info in self.__sections_info:
-            if section_info[0] == 0: continue
+            if not section_info[3]: continue
             if offset >= section_info[0] and offset < section_info[0] + section_info[2]:
                 return section_info[1] + offset - section_info[0]
         raise InvalidImgOffsetError(f"Not found: {offset:08x}")
     # Resolve a virtual memory address to a dol absolute offset
     def resolve_virtual2img(self, address:int):
         for section_info in self.__sections_info:
-            if section_info[0] == 0: continue
+            if not section_info[3]: continue
             if address >= section_info[1] and address < section_info[1] + section_info[2]:
                 return section_info[0] + address - section_info[1]
         raise InvalidVirtualAddressError(f"Not found in dol initial segments: {address:08x}")
