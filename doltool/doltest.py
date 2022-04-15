@@ -4,7 +4,7 @@ from pathlib import Path
 from time import time
 
 __version__ = "0.0.1"
-__author__ = "algoflash"
+__author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
 
