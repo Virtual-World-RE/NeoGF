@@ -4,7 +4,7 @@
 Python3 script for manipuling dol file format. This tool can stats with all informations from dol header and patch dol .text and .data using a list of write Action Replay code in an formated .ini file. MIT License.
 
 ## User manual
-Translate a virtual address into a dol offset if this was originaly mapped from data or text. virtual_address has to be in hexadecimal: 80003000
+Translate a virtual address into a dol offset if this was originaly mapped from data or text. virtual_address has to be in hexadecimal: 80003100
 ```
 doltool.py --virtual2image virtual_address
 ```
