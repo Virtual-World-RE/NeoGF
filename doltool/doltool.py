@@ -4,7 +4,7 @@ import re
 
 
 __version__ = "0.0.4"
-__author__ = "algoflash"
+__author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
 
