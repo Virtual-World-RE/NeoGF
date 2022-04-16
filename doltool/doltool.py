@@ -3,15 +3,20 @@ import logging
 import re
 
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
 
 
+# raised when the action replay ini file contains a bad formated entry
 class InvalidIniFileEntryError(Exception): pass
+# raised when trying to resolve an invalid dol file offset
 class InvalidImgOffsetError(Exception): pass
+# raised when trying to resolve an out of section Virtual address
 class InvalidVirtualAddressError(Exception): pass
+# raised when Virtual address + length Overflow out of sections
+class SectionsOverflowError(Exception): pass
 
 
 # Get non-overlapping intervals from interval by removing intervals_to_remove
@@ -48,7 +53,8 @@ def remove_intervals_from_interval(interval:list, intervals_to_remove:list):
 def parse_action_replay_ini(path:Path):
     action_replay_lines = path.read_text().splitlines()
 
-    # Address = (first 4 bytes & 0x01FFFFFF) | 0x80000000
+    # address = (first 4 bytes & 0x01FFFFFF) | 0x80000000
+    # opcode = first byte & 0xFE
     pattern = re.compile("^(0[2345][0-9a-zA-Z]{6}) ([0-9a-zA-Z]{8})$")
     result_list = []
 
@@ -65,15 +71,15 @@ def parse_action_replay_ini(path:Path):
         virtual_address = (int(res[1], base=16) & 0x01FFFFFF) | 0x80000000
         opcode = int(res[1][:2], base=16) & 0xFE
         bytes_value = None
+
         if opcode == 0x04:
             bytes_value = int(res[2], 16).to_bytes(4, "big")
         elif opcode == 0x02:
             bytes_value = (int(res[2][:4], 16) + 1) * int(res[2][4:], 16).to_bytes(2, "big")
         else:
             raise InvalidIniFileEntryError("Error - Arcode has to be in format: '0AXXXXXX XXXXXXXX' with A in [2,3,4,5] and X in [0-9a-fA-F] line \"{action_replay_line}\".")
+
         result_list.append( (virtual_address, bytes_value) )
-        """
-        """
     return result_list
 
 
@@ -105,19 +111,19 @@ class Dol:
             self.__sections_info.append( (offset, address, length, is_used) )
     # print a table with each sections
     def __str__(self):
-        res = f"Entry point: {self.__entry_point:08x}\n\n"
-        res += "Section | Offset   | Address  | Length   | Used\n" + "-"*48 + "\n"
+        res = f"Entry point: {self.__entry_point:08x}\n\n|"
+        res += "-"*50 + "|\n| Section | Offset   | Address  | Length   | Used  |\n|" + "-"*9 + ("|"+"-"*10)*3 + "|" + "-"*7 + "|\n"
         i = 0
         for section in self.__sections_info:
-            res+= "text"+str(i) if i < 7 else "data"+str(i)
+            res+= "| text"+str(i) if i < 7 else "| data"+str(i)
             if i < 10: res += " "
-            res += f"  | {section[0]:08x} | {section[1]:08x} | {section[2]:08x} | {str(section[3])}\n"
+            res += f"  | {section[0]:08x} | {section[1]:08x} | {section[2]:08x} | {str(section[3]).ljust(5)} |\n"
             i += 1
-        res += f"\nbss: address:{self.__bss_info[0]:08x} length:{self.__bss_info[1]:08x}"
+        res += "|"+"-"*50+f"|\n\nbss: address:{self.__bss_info[0]:08x} length:{self.__bss_info[1]:08x}"
         return res
     """
     # search_raw: bytecode
-    # we could also identify text segments to improve search
+    # we could also identify text sections to improve search
     def search_raw(self, bytecode:bytes):
         if len(bytecode) == 0:
             raise Exception("Error - No bytecode.")
@@ -127,6 +133,27 @@ class Dol:
                 offsets.append(self.resolve_img2virtual(i + Dol.HEADER_LEN))
         return offsets if len(offsets) > 0 else None
     """
+    # When patching a section we could overflow on the next section
+    # Return list of [ [virtual_address:int, value:bytes], ... ]
+    # raise SectionsOverflowError if part of the bytecode is out of the existing sections
+    # raise InvalidVirtualAddressError if the base virtual address is out of the existing sections
+    def __get_section_mapped_values(self, virtual_address:int, bytes_value:bytes):
+        for section_info in self.__sections_info:
+            if not section_info[3]: continue
+            # first byte out of section:
+            section_end_address = section_info[1] + section_info[2]
+            if virtual_address >= section_info[1] and virtual_address < section_end_address:
+                if virtual_address + len(bytes_value) <= section_end_address:
+                    return [ [section_info[0] + virtual_address - section_info[1], bytes_value] ] # dol offset and value
+                # Here we have to split the value to find where in the dol is the second part
+                splited_len = section_end_address - virtual_address
+                splited_result = [[section_info[0] + virtual_address - section_info[1], bytes_value[:splited_len]]]
+                try:
+                    splited_result += self.__get_section_mapped_values(virtual_address + splited_len, bytes_value[splited_len:])
+                    return splited_result
+                except InvalidVirtualAddressError:
+                    raise SectionsOverflowError(f"Error - Value Overflow in an inexistant dol initial section: {virtual_address:08x}:{bytes_value.hex()}")
+        raise InvalidVirtualAddressError(f"Error - Not found in dol initial sections: {virtual_address:08x}")
     # Resolve a dol absolute offset to a virtual memory address
     def resolve_img2virtual(self, offset:int):
         memory_address = None
@@ -134,14 +161,14 @@ class Dol:
             if not section_info[3]: continue
             if offset >= section_info[0] and offset < section_info[0] + section_info[2]:
                 return section_info[1] + offset - section_info[0]
-        raise InvalidImgOffsetError(f"Not found: {offset:08x}")
+        raise InvalidImgOffsetError(f"Error - Invalid dol image offset: {offset:08x}")
     # Resolve a virtual memory address to a dol absolute offset
     def resolve_virtual2img(self, address:int):
         for section_info in self.__sections_info:
             if not section_info[3]: continue
             if address >= section_info[1] and address < section_info[1] + section_info[2]:
                 return section_info[0] + address - section_info[1]
-        raise InvalidVirtualAddressError(f"Not found in dol initial segments: {address:08x}")
+        raise InvalidVirtualAddressError(f"Error - Not found in dol initial sections: {address:08x}")
     def stats(self):
         print(self)
 
@@ -183,11 +210,11 @@ class Dol:
             result_intervals += [[empty_interval[0], empty_interval[1], empty_interval[2], empty_interval[2] - empty_interval[1]]]
 
         result_intervals.sort(key=lambda x: x[1])
-        str_buffer = "\nSection      | beg_addr | end_addr | length   |\n" + "-"*48 + "\n"
+        str_buffer = "\n|"+"-"*46+"|\n| Section     | beg_addr | end_addr | length   |\n|" + "-"*13 + ("|"+"-"*10)*3 + "|\n"
         for interval in result_intervals:
-            str_buffer += f"{interval[0].ljust(12)} | {interval[1]:08x} | {interval[2]:08x} | {interval[3]:08x} | \n"
+            str_buffer += f"| {interval[0].ljust(11)} | {interval[1]:08x} | {interval[2]:08x} | {interval[3]:08x} |\n"
 
-        print(str_buffer)
+        print(str_buffer + "|"+"-"*46+"|")
     def extract(self, filename:str, section_index:int):
         if section_index > 17:
             raise Exception("Error - Section index has to be in 0 - 17")
@@ -202,8 +229,9 @@ class Dol:
         self.__data = bytearray(self.__data)
         for virtualaddress_bytes in virtualaddress_bytes_list:
             offset = self.resolve_virtual2img(virtualaddress_bytes[0])
-            print(f"Patching {virtualaddress_bytes[0]:08x} at dol offset {offset:08x} with value {virtualaddress_bytes[1].hex()}")
-            self.__data[offset: offset + len(virtualaddress_bytes[1])] = virtualaddress_bytes[1]
+            for mapped_list in self.__get_section_mapped_values(virtualaddress_bytes[0], virtualaddress_bytes[1]):
+                print(f"Patching {virtualaddress_bytes[0]:08x} at dol offset {offset:08x} with value {virtualaddress_bytes[1].hex()}")
+                self.__data[offset: offset + len(virtualaddress_bytes[1])] = virtualaddress_bytes[1]
 
 
 def get_argparser():
