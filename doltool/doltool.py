@@ -3,7 +3,7 @@ import logging
 import re
 
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -44,10 +44,12 @@ def remove_intervals_from_interval(interval:list, intervals_to_remove:list):
 # * empty lines are removed
 # * lines beginning with $ are concidered as comments and are removed
 # * lines beginning with [ are concidered as comments and are removed
-# * others lines have to be in format: "0AXXXXXX XXXXXXXX" with (A=2 or A=4) and X in [0-9a-fA-F]
+# * others lines have to be in format: "0AXXXXXX XXXXXXXX" with A in [2,3,4,5] and X in [0-9a-fA-F]
 def parse_action_replay_ini(path:Path):
     action_replay_lines = path.read_text().splitlines()
-    pattern = re.compile("^(02|04)([0-9a-zA-Z]{6}) ([0-9a-zA-Z]{8})$")
+
+    # Address = (first 4 bytes & 0x01FFFFFF) | 0x80000000
+    pattern = re.compile("^(0[2345][0-9a-zA-Z]{6}) ([0-9a-zA-Z]{8})$")
     result_list = []
 
     for action_replay_line in action_replay_lines:
@@ -58,17 +60,20 @@ def parse_action_replay_ini(path:Path):
         res = pattern.fullmatch(action_replay_line)
 
         if res is None:
-            raise InvalidIniFileEntryError(f"Error - Arcode has to be in format: '0AXXXXXX XXXXXXXX' with (A=2 or A=4) and X in [0-9a-fA-F] line \"{action_replay_line}\".")
+            raise InvalidIniFileEntryError(f"Error - Arcode has to be in format: '0AXXXXXX XXXXXXXX' with A in [2,3,4,5] and X in [0-9a-fA-F] line \"{action_replay_line}\".")
 
-        virtual_address = int("80"+res[2], base=16)
+        virtual_address = (int(res[1], base=16) & 0x01FFFFFF) | 0x80000000
+        opcode = int(res[1][:2], base=16) & 0xFE
         bytes_value = None
-        if res[1] == "04":
-            bytes_value = int(res[3], 16).to_bytes(4, "big")
-        elif res[1] == "02":
-            bytes_value = (int(res[3][:4], 16) + 1) * int(res[3][4:], 16).to_bytes(2, "big")
+        if opcode == 0x04:
+            bytes_value = int(res[2], 16).to_bytes(4, "big")
+        elif opcode == 0x02:
+            bytes_value = (int(res[2][:4], 16) + 1) * int(res[2][4:], 16).to_bytes(2, "big")
         else:
-            raise InvalidIniFileEntryError("Error - Arcode has to be in format: '0AXXXXXX XXXXXXXX' with (A=2 or A=4) and X in [0-9a-fA-F] line \"{action_replay_line}\".")
+            raise InvalidIniFileEntryError("Error - Arcode has to be in format: '0AXXXXXX XXXXXXXX' with A in [2,3,4,5] and X in [0-9a-fA-F] line \"{action_replay_line}\".")
         result_list.append( (virtual_address, bytes_value) )
+        """
+        """
     return result_list
 
 
