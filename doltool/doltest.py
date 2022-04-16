@@ -1,9 +1,10 @@
-from doltool import parse_action_replay_ini, InvalidIniFileEntryError, InvalidImgOffsetError, InvalidVirtualAddressError, Dol
+from doltool import parse_action_replay_ini, Dol
+from doltool import InvalidIniFileEntryError, InvalidImgOffsetError, InvalidVirtualAddressError, SectionsOverflowError
 import shutil
 from pathlib import Path
 from time import time
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -31,7 +32,7 @@ def doltool_stats(path):
         raise Exception("Error while getting stats.")
 """
 
-TEST_COUNT = 3
+TEST_COUNT = 4
 
 start = time()
 print("###############################################################################")
@@ -95,34 +96,18 @@ if valid_list != expected_result:
     raise Exception("Error - Invalid ini parsing.")
 print("Valid parsing as Expected.")
 
-invalid1_action_replay_ini = """
-[]
-.
-
-122E2CC0 00050096
-"""
-invalid2_action_replay_ini = """
-[]
-.
-a
-082E2CC0 00050096
-"""
-invalid3_action_replay_ini = """
-[]
-.
-a
-082E2CC0 00050096
-"""
-invalid4_action_replay_ini = """
-[]
-.
-
-082E2CC0  00050096
-"""
-for invalid_action_replay_ini in [invalid1_action_replay_ini, invalid2_action_replay_ini, invalid3_action_replay_ini, invalid4_action_replay_ini]:
+for invalid_action_replay_ini in ["a\n082E2CC0 00050096\n","0002E2CC0 00050096","082E2CC0  00050096", "\n122E2CC0 00050096\n"]:
     try:
-        (test_path / "test.ini").write_text(invalid_action_replay_ini)
-        valid_list = parse_action_replay_ini(test_path / "test.ini")
+        (test_path / "test2.ini").write_text(invalid_action_replay_ini)
+        valid_list = parse_action_replay_ini(test_path / "test2.ini")
+        raise Exception("Error - InvalidIniFileEntryError Exception should have been triggered.")
+    except InvalidIniFileEntryError:
+        print("Correct InvalidIniFileEntryError triggered.")
+
+for invalid_action_replay_ini in ["a\n082E2CC0 00050096\n","0002E2CC0 00050096","082E2CC0  00050096", "\n122E2CC0 00050096\n"]:
+    try:
+        (test_path / "test3.ini").write_text(invalid_action_replay_ini)
+        valid_list = parse_action_replay_ini(test_path / "test3.ini")
         raise Exception("Error - InvalidIniFileEntryError Exception should have been triggered.")
     except InvalidIniFileEntryError:
         print("Correct InvalidIniFileEntryError triggered.")
@@ -147,7 +132,7 @@ for (offset, virtual_address) in [(0x100 + 0x24e0 - 1, 0x800055e0 - 1), (0x25e0 
     else:
         raise Exception(f"Error - resolve_img2virtual invalid translation for offset {offset:08x}: {virtual_address:08x}.")
 
-print("Testing first offset of unalocated segments to raise Exception:")
+print("Testing first and last offset out of file datas to raise Exception:")
 for invalid_offset in [0x9f, 0x3bd400]:
     try:
         dol.resolve_img2virtual(invalid_offset)
@@ -181,6 +166,38 @@ for invalid_offset in [0x800030ff, 0x803b6bc0, 0x803b6bc0, 0x8043cbe0 - 1, 0x804
         raise Exception("Error - InvalidVirtualAddressError Exception should have been triggered.")
     except InvalidVirtualAddressError:
         print("Correct InvalidVirtualAddressError triggered.")
+
+print("###############################################################################")
+print(f"# TEST 4/{TEST_COUNT}")
+print("# Testing correct split when patching the end of sections (overflows).")
+print("###############################################################################")
+# Testing correct split between two .data section + 1
+# .data2 on .data3
+print(dol._Dol__get_section_mapped_values(0x802c0e7d, b"\x01\x23\x45\x67"))
+if dol._Dol__get_section_mapped_values(0x802c0e7d, b"\x01\x23\x45\x67") != [[dol.resolve_virtual2img(0x802c0e7d), b"\x01\x23\x45"], [dol.resolve_virtual2img(0x802c0e80), b"\x67"]]:
+    raise Exception("Error - Invalid sections split on .data2 overflowing from 1 byte to .data3.")
+print("Correct split.")
+
+# Testing correct split between two .data section - 1
+# .data2 on .data3
+if dol._Dol__get_section_mapped_values(0x802c0e7f, b"\x01\x23\x45\x67") != [[dol.resolve_virtual2img(0x802c0e7f), b"\x01"], [dol.resolve_virtual2img(0x802c0e80), b"\x23\x45\x67"]]:
+    raise Exception("Error - Invalid sections split on .data2 overflowing from 3 byte to .data3.")
+print("Correct split.")
+
+# Testing Not Overflowing at the end of section
+# .data3 on .bss0
+if dol._Dol__get_section_mapped_values(0x803b6bbc, b"\x01\x23\x45\x67") != [[dol.resolve_virtual2img(0x803b6bbc), b"\x01\x23\x45\x67"]]:
+    raise Exception("Error - Invalid sections split on the last 4 bytes of .data3.")
+print("Correct end split.")
+
+# Testing Overflowing at the end of section + 1
+# .data3 on .bss0
+try:
+    dol._Dol__get_section_mapped_values(0x803b6bbd, b"\x01\x23\x45\x67")
+    raise Exception("Error - SectionsOverflowError Exception should have been triggered.")
+except SectionsOverflowError:
+    print("Correct SectionsOverflowError triggered.")
+
 
 print("###############################################################################")
 print(f"# Cleaning test folders.")
