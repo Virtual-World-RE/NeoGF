@@ -1,5 +1,5 @@
 # pzztool.py
-Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archive. MDT files are also handled by pzztool.py. MIT License.
+Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archive. MDT files are also handled by pzztool.py. Handle also ARZ files decompression. MIT License.
 
 ## How to patch a pzz
 1. Extract afs_data.afs from the ROM
