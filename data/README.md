@@ -9,4 +9,8 @@ gnt4- symbols are verified and come from https://github.com/orgs/doldecomp/repos
 
 Others come from dolphin emulator initial .dsy signature file.
 ## NTSC_Borgs.csv:
-NTSC Borgs csv was usefull to search values using scripts. Value has been retrievied from [fandom.com Wiki](https://gotchaforce.fandom.com/wiki/Gotcha_Force_Wiki).
+EU Borgs csv was usefull to search values using scripts. Value has been retrievied from [fandom.com Wiki](https://gotchaforce.fandom.com/wiki/Gotcha_Force_Wiki).
+
+## eu_borgs_GET_values.csv
+Credit to CrystalPixel.
+GET values of borgs.
