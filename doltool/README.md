@@ -1,7 +1,7 @@
 # doltool.py
-**Tests for --patch-action-replay command has to be done so this command is experimental for now.**
+**Tests on -sr command and sections remapping has to be done.**
 
-Python3 script for manipuling dol file format. This tool can stats with all informations from dol header and patch dol .text and .data using a list of write Action Replay code in an formated .ini file. MIT License.
+Python3 script for manipulating dol file format. This tool can stats with all informations from dol header and patch dol .text and .data using a list of write Action Replay code in an formated .ini file. MIT License.
 
 ## User manual
 Translate a virtual address into a dol offset if this was originaly mapped from data or text. virtual_address has to be in hexadecimal: 80003100
@@ -16,17 +16,17 @@ doltool.py --image2virtual dol_offset
 
 Extract a section_index between 0 to 17 from the dol file **source.dol** with the name  _source.dol\_sectiontypeN_. sectiontype = data or text and N is the index from 0 to 17.
 ```
-doltool.py --extract source.dol section_index
+doltool.py --extract source.dol section_index [-o output_file]
 ```
 
 Print stats about the dol file. This stats contains informations about full header information formated (with sections used or not), empty spaces informations splited .bss and entry point.
 ```
-doltool.py --stats source.dol 
+doltool.py --stats source.dol
 ```
 
-**experimental** Patch the dol data and text section using an action_replay.ini file containing write instructions (02/04 implemented yet). If the virtual address of the ARCode doesn't match existing mapped data or text sections it raise an Exception.
+Patch the dol data and text section using an action_replay.ini file containing write instructions (02/04 implemented yet). If the virtual address of the ARCode doesn't match existing mapped data or text sections it raise an Exception. To avoid this exception use the -sr argument to auto remap dol offsets and create a new data section reserved for the patching process.
 ```
-doltool.py --patch-action-replay source.dol action_replay_list.ini
+doltool.py --patch-action-replay source.dol action_replay_list.ini [-sr]
 ```
 
 ## Action Replay ini file format
