@@ -35,4 +35,4 @@ Raise an Exception if lines are in invalid format:
 * empty lines are removed
 * lines beginning with $ are considered as comments and are removed
 * lines beginning with \[ are considered as comments and are removed
-* others lines have to be in format: "0AXXXXXX XXXXXXXX" with (A=2 or A=4) and X in \[0-9a-fA-F\]
+* others lines have to be in format: "0AXXXXXX XXXXXXXX" with (A in 2,3,4,5) and X in \[0-9a-fA-F\]
