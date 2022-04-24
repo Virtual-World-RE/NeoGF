@@ -24,7 +24,7 @@ Print stats about the dol file. This stats contains informations about full head
 doltool.py --stats source.dol
 ```
 
-Patch the dol data and text section using an action_replay.ini file containing write instructions (02/04 implemented yet). If the virtual address of the ARCode doesn't match existing mapped data or text sections it raise an Exception. To avoid this exception use the -sr argument to auto remap dol offsets and create a new data section reserved for the patching process.
+Patch the dol data and text section using an action_replay.ini file containing write instructions (02/04 implemented yet). If the virtual address of the ARCode doesn't match existing mapped data or text sections it raise an Exception. To avoid this exception use the -sr argument to auto remap dol offsets and create news data sections reserved for the patching process.
 ```
 doltool.py --patch-action-replay source.dol -ini action_replay_list.ini [-sr]
 ```
