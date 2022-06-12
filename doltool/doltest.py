@@ -10,7 +10,7 @@ import shutil
 from time import time
 
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -58,6 +58,7 @@ class DolDescriptor:
 
 
 def map_offsets(datas:bytes, offsets_map:list, intervals:list):
+    'create virtual space temporary to patch then replace as initial mapped with patched datas.'
     max_address = 0
     for beg,length,dest in offsets_map:
         max_address = max(max_address, dest+length)
@@ -83,7 +84,7 @@ def create_dol(dol_name:str, descriptors_list:list, bss_addr:int = 20, bss_lengt
     lengths = b""
     tmp_list = copy.deepcopy(descriptors_list)
     for index in range(18):
-        if len(tmp_list) > 0:
+        if tmp_list:
             if tmp_list[0].index == index:
                 offsets += tmp_list[0].boffset()
                 address += tmp_list[0].baddress()
@@ -124,12 +125,14 @@ def memory_objects_to_ini_txt(memory_objects:list):
         elif memory_object.length() % 2 == 0:
             str_buffer += f"{addr | 0x02000000:08x} {((memory_object.length() // 2) - 1):04x}" + f"{memory_object.datas()[0]:02x}"*2 + "\n"
         else:
-            print(f"{memory_object.address():08x} {memory_object.length():08x}")
-            raise("doltest: Invalid ARCode length - should be aligned to 2 or 4")
+            str_buffer += f"{addr:08x} {(memory_object.length() - 1):06x}" + f"{memory_object.datas()[0]:02x}" + "\n"
     return str_buffer
 
 
 def create_memory_objects_from_intervals(*intervals:list):
+    'Create memory objects list from intervals.'
+    if intervals is None:
+        return None
     res = []
     for interval in intervals:
         memory_object = MemoryObject(0x80003100 + interval[0], end_address = 0x80003100 +  interval[1])
@@ -260,31 +263,30 @@ print("Testing __sub__:")
 interval = MemoryObject(0x80003100 + 10, end_address=0x80003100 + 20)
 
 for [intervals_to_remove, expected_res] in [
-    [create_memory_objects_from_intervals([0,10]), create_memory_objects_from_intervals([10,20])], # Before
-    [create_memory_objects_from_intervals([20,30]), create_memory_objects_from_intervals([10,20])], # After
-    [create_memory_objects_from_intervals([0,10],[20,30]), create_memory_objects_from_intervals([10,20])], # Before and after
-    [create_memory_objects_from_intervals([0,11],[20,30]), create_memory_objects_from_intervals([11,20])], # left truncate
-    [create_memory_objects_from_intervals([0,11],[19,30]), create_memory_objects_from_intervals([11,19])], # left and right truncate
-    [create_memory_objects_from_intervals([0,10],[19,30]), create_memory_objects_from_intervals([10,19])], # right truncate
-    [create_memory_objects_from_intervals([0,11],[12,13],[14,15],[19,30]), create_memory_objects_from_intervals([11,12],[13,14],[15,19])], # left middle and right truncate
-    [create_memory_objects_from_intervals([0,11],[11,13],[13,15],[19,30]), create_memory_objects_from_intervals([15,19])], # following truncates left truncate rigth truncate
-    [create_memory_objects_from_intervals([0,11],[11,13],[13,15],[15,20]), None], # following truncates overlap with end match
-    [create_memory_objects_from_intervals([10,13],[13,15],[15,25]), None], # following truncates overlap with begin match
-    [create_memory_objects_from_intervals([10,13],[13,15],[15,20]), None], # following truncates in with begin and end match
-    [create_memory_objects_from_intervals([11,13],[13,15],[15,19]), create_memory_objects_from_intervals([10,11],[19,20])], # following truncates in
-    [create_memory_objects_from_intervals([10,13],[13,15],[15,19]), create_memory_objects_from_intervals([19,20])], # following truncates in with begin match
-    [create_memory_objects_from_intervals([11,13],[13,15],[15,20]), create_memory_objects_from_intervals([10,11])], # following truncates in with end match
-    [create_memory_objects_from_intervals([0,30]), None], # total overlap overflowing left right
-    [create_memory_objects_from_intervals([10,30]), None], # total overlap overflowing left
-    [create_memory_objects_from_intervals([0,20]), None], # total overlap overflowing right
-    [create_memory_objects_from_intervals([10,20]), None]]: # total match
-    res_interval = interval - intervals_to_remove
+    [[[0,10]], [[10,20]]], # Before with match
+    [[[20,30]], [[10,20]]], # After with match
+    [[[0,10],[20,30]], [[10,20]]], # Before and after
+    [[[0,11],[20,30]], [[11,20]]], # left truncate
+    [[[0,11],[19,30]], [[11,19]]], # left and right truncate
+    [[[0,10],[19,30]], [[10,19]]], # right truncate
+    [[[0,11],[12,13],[14,15],[19,30]], [[11,12],[13,14],[15,19]]], # left middle and right truncate
+    [[[0,11],[11,13],[13,15],[19,30]], [[15,19]]], # following truncates left truncate rigth truncate
+    [[[0,11],[11,13],[13,15],[15,20]], None], # following truncates overlap with end match
+    [[[10,13],[13,15],[15,25]], None], # following truncates overlap with begin match
+    [[[10,13],[13,15],[15,20]], None], # following truncates in with begin and end match
+    [[[11,13],[13,15],[15,19]], [[10,11],[19,20]]], # following truncates in
+    [[[10,13],[13,15],[15,19]], [[19,20]]], # following truncates in with begin match
+    [[[11,13],[13,15],[15,20]], [[10,11]]], # following truncates in with end match
+    [[[0,30]], None], # total overlap overflowing left right
+    [[[10,30]], None], # total overlap overflowing left
+    [[[0,20]], None], # total overlap overflowing right
+    [[[10,20]], None]]: # total match
+    res_interval = interval - create_memory_objects_from_intervals( *intervals_to_remove )
+
+    expected_res = create_memory_objects_from_intervals(*expected_res) if expected_res is not None else None
     if expected_res is None and res_interval is None:
         print("Correct result.")
         continue
-
-    for a in res_interval:
-        print(a)
 
     if len(res_interval) != len(expected_res):
         raise Exception("Error - Invalid __sub__ result.")
@@ -606,7 +608,11 @@ print("# Testing valid action_replay_code parsing.")
 print("###############################################################################")
 ini_path.mkdir()
 dol_tests_path.mkdir()
-valid_action_replay_ini = "[ActionReplay_Enabled]\n$Costs\n$HP\n$B Ammo and Refill Codes\n$B Mode and Reload Codes\n$X Ammo and Refill Codes\n$X Mode and Reload Codes\n$Warehouse Full\n\n[ActionReplay]\n$Costs\n022E2CC0 00050096\n022E2CCC 00050136\n022E2CD8 0005012C\n022E2CE4 000500D2\n042E4E2A 0000005A\n042E4F92 000001E0\n042E50FA 0000005A\n042E5262 0001003C\n042E53CA 00000078\n042E5532 0000003C\n042E569A 0000003C\n042E5802 00000078\n042E596A 0000000A\n"
+valid_action_replay_ini = "[ActionReplay_Enabled]\n$Costs\n$HP\n$B Ammo and Refill Codes\n$B Mode and Reload Codes\n"+\
+    "$X Ammo and Refill Codes\n$X Mode and Reload Codes\n$Warehouse Full\n\n[ActionReplay]\n$Costs\n022E2CC0 00050096\n"+\
+    "022E2CCC 00050136\n022E2CD8 0005012C\n022E2CE4 000500D2\n042E4E2A 0000005A\n042E4F92 000001E0\n042E50FA 0000005A\n"+\
+    "042E5262 0001003C\n042E53CA 00000078\n042E5532 0000003C\n042E569A 0000003C\n042E5802 00000078\n042E596A 0000000A\n"+\
+    "003CE5C2 00000003\n0040E5C2 00000344\n"
 
 (ini_path / "test1.ini").write_text(valid_action_replay_ini)
 action_replay_list = parse_action_replay_ini(ini_path / "test1.ini")
@@ -624,7 +630,9 @@ expected_res6 = [
     (int("802E5532", 16), b"\x00\x00\x00\x3C"),
     (int("802E569A", 16), b"\x00\x00\x00\x3C"),
     (int("802E5802", 16), b"\x00\x00\x00\x78"),
-    (int("802E596A", 16), b"\x00\x00\x00\x0A")]
+    (int("802E596A", 16), b"\x00\x00\x00\x0A"),
+    (int("803CE5C2", 16), b"\x03"),
+    (int("8040E5C2", 16), b"\x44\x44\x44\x44")]
 if len(expected_res6) != len(action_replay_list):
     raise Exception("Error - Invalid ini parsing.")
 for index, exp_res in enumerate(expected_res6):
@@ -632,7 +640,7 @@ for index, exp_res in enumerate(expected_res6):
         raise Exception("Error - Invalid ini parsing.")
 print("Valid parsing as Expected.")
 
-for invalid_action_replay_ini in ["a\n082E2CC0 00050096\n","0002E2CC0 00050096","082E2CC0  00050096", "\n122E2CC0 00050096\n"]:
+for invalid_action_replay_ini in ["a\n082E2CC0 00050096\n","0A02E2CC0 00050096","082E2CC0  00050096", "\n122E2CC0 00050096\n"]:
     try:
         (ini_path / "test2.ini").write_text(invalid_action_replay_ini)
         parse_action_replay_ini(ini_path / "test2.ini")
@@ -697,7 +705,6 @@ for index, (overlap0, overlap1) in enumerate(overlaps0):
         raise Exception("Error - Invalid get_overlapping_arcodes result.")
 
 print("Testing get_unmapped_intervals.")
-
 merged_memo_res = [[ # Testing all limits
     create_memory_objects_from_intervals([50,75],[100,200],[250,260],[270,280],[300,400]),
     create_memory_objects_from_intervals(
@@ -976,22 +983,22 @@ intervals_list.append([[156, 160, b"\x66"], [255, 289, b"\x99"], [160, 164, b"\x
 #     [288, 320], [320, 352], [352, 384], [384, 416], [416, 448]
 intervals_list.append([
     [24, 64, b"\x11"],  # overlap left match right
-    [96, 130, b"\x11"], # overlap right match left
-    [120, 170, b"\x11"], # overlap left and right
-    [191, 225, b"\x11"], # overlap left and right +1-1
-    [255, 353, b"\x11"]]) # overlap left and right +- 3 sections (reversed)
+    [96, 130, b"\x22"], # overlap right match left
+    [120, 170, b"\x33"], # overlap left and right
+    [191, 225, b"\x44"], # overlap left and right +1-1
+    [255, 353, b"\x55"]]) # overlap left and right +- 3 sections (reversed)
 intervals_list.append([ # same but reverse sorted
     [255, 353, b"\x11"], # overlap left and right +- 3 sections (reversed)
-    [191, 225, b"\x11"], # overlap left and right +1-1
-    [120, 170, b"\x11"], # overlap left and right
-    [96, 130, b"\x11"], # overlap right match left
-    [24, 64, b"\x11"]])  # overlap left match right
+    [191, 225, b"\x22"], # overlap left and right +1-1
+    [120, 170, b"\x33"], # overlap left and right
+    [96, 130, b"\x44"], # overlap right match left
+    [24, 64, b"\x55"]])  # overlap left match right
 intervals_list.append([ # same but shuffled
     [120, 170, b"\x11"], # overlap left and right
-    [255, 353, b"\x11"], # overlap left and right +- 3 sections (reversed)
-    [96, 130, b"\x11"], # overlap right match left
-    [24, 64, b"\x11"],  # overlap left match right
-    [191, 225, b"\x11"]]) # overlap left and right +1-1
+    [255, 353, b"\x22"], # overlap left and right +- 3 sections (reversed)
+    [96, 130, b"\x33"], # overlap right match left
+    [24, 64, b"\x44"],  # overlap left match right
+    [191, 225, b"\x55"]]) # overlap left and right +1-1
 # total file patch
 # overlap right (match left) 3 sections dol1 <- sorted
 # overlap left match right 3 sections dol3 <- reverse sorted
@@ -1001,6 +1008,8 @@ intervals_list.append([[0, 448, b"\x11"]])
 intervals_list.append([[254, 448, b"\x11"]])
 # overlap left and right +-3 sections <- dol2 1st section
 intervals_list.append([[100, 340, b"\x11"]])
+# one byte patch test
+intervals_list.append([[100, 101, b"\x11"], [105, 110, b"\x22"]])
 
 """
 dol123_datas = b"".join(list(map(lambda x: x.to_bytes(4, "big"), [
@@ -1035,6 +1044,7 @@ def test_dols(range_dols, intervals_list:list):
 
             doltool_par(dol_tests_path / dol_path, dol_tests_path / dol_patched_path, ini_path / dol_ini_path)
             if dol_header + dol_datas != (dol_tests_path / dol_patched_path).read_bytes():
+                print(interval_index, intervals)
                 raise Exception("Error - Invalid -par result.")
 test_dols(range(1,7), intervals_list)
 # Testing Overflowing at the end of section + 1
@@ -1045,9 +1055,11 @@ intervals_list.append([[0, 24, b"\x11"], [447, 451, b"\x22"]])
 intervals_list.append([[447, 451, b"\x11"], [33, 63, b"\x22"]])
 intervals_list.append([[447, 451, b"\x11"]])
 intervals_list.append([[445, 449, b"\x11"]])
+intervals_list.append([[446, 449, b"\x11"]])
+intervals_list.append([[447, 450, b"\x11"]])
+intervals_list.append([[447, 456, b"\x11"]])
 
 for interval_index, intervals in enumerate(intervals_list):
-
     for dol_index in range(1,7):
         try:
             dol_ini_path = f"dol{dol_index}_{interval_index}_exception.ini"
