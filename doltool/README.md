@@ -29,9 +29,9 @@ Analyse action_replay_list.ini and the dol. Overlapping arcodes are printed and 
 doltool.py --analyse-action-replay source.dol -ini action_replay_list.ini
 ```
 
-Patch the dol data and text section using an action_replay.ini file containing write instructions (02/04 implemented yet). If the virtual address of the ARCode doesn't match existing mapped data or text sections it raise an Exception. To avoid this exception use the -sr argument to auto remap dol offsets and create news data sections reserved for the patching process.
+Patch the dol data and text section using an action_replay.ini file containing write instructions (00/02/04 implemented yet). If the virtual address of the ARCode doesn't match existing mapped data or text sections it raise an Exception. To avoid this exception use the -sr argument to auto remap dol offsets and create news data sections reserved for the patching process.
 ```
-doltool.py --patch-action-replay source.dol -ini action_replay_list.ini [-sr]
+doltool.py --patch-action-replay source.dol -ini action_replay_list.ini [-sr] -o patched.dol
 ```
 
 ## Action Replay ini file format
@@ -40,4 +40,4 @@ Raise an Exception if lines are in invalid format:
 * empty lines are removed
 * lines beginning with $ are considered as comments and are removed
 * lines beginning with \[ are considered as comments and are removed
-* others lines have to be in format: "0AXXXXXX XXXXXXXX" with (A in 2,3,4,5) and X in \[0-9a-fA-F\]
+* others lines have to be in format: "0AXXXXXX XXXXXXXX" with (A in 0,1,2,3,4,5) and X in \[0-9a-fA-F\]
