@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 
 
-__version__ = "0.0.8"
+__version__ = "0.0.9"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -59,7 +59,7 @@ class MemoryObject:
     __end_address = None
     __length = None
     __datas = None
-    def __init__(self, address:int, section_type:SectionType = SectionType.UNMAPPED, name:str = None, length:int = None, end_address:int = None, locked_address_space = True):
+    def __init__(self, address:int, section_type:SectionType = SectionType.UNMAPPED, name:str = None, length:int = None, end_address:int = None, locked_address_space:bool = True):
         if length is None:
             if end_address is None:
                 raise Exception("Error - length or end_address has to be specified.")
@@ -315,13 +315,13 @@ def parse_action_replay_ini(path:Path):
     * empty lines are removed
     * lines beginning with $ are concidered as comments and are removed
     * lines beginning with [ are concidered as comments and are removed
-    * others lines have to be in format: "0AXXXXXX XXXXXXXX" with A in [2,3,4,5] and X in [0-9a-fA-F]
+    * others lines have to be in format: "0AXXXXXX XXXXXXXX" with A in [0,1,2,3,4,5] and X in [0-9a-fA-F]
     """
-    return [ActionReplayCode(action_replay_line, i) for i, action_replay_line in enumerate(path.read_text().splitlines()) if len(action_replay_line) != 0 and action_replay_line[0] not in ["$", "["]]
+    return [ActionReplayCode(action_replay_line, i + 1) for i, action_replay_line in enumerate(path.read_text().splitlines()) if len(action_replay_line) != 0 and action_replay_line[0] not in ["$", "["]]
 
 
 class ActionReplayCode(MemoryObject):
-    __PATTERN = re.compile("^(0[2345][0-9a-zA-Z]{6}) ([0-9a-zA-Z]{8})$") # class variable give better perfs for regex processing
+    __PATTERN = re.compile("^(0[012345][0-9a-zA-Z]{6}) ([0-9a-zA-Z]{8})$") # class variable give better perfs for regex processing
     __line_number = None
     __opcode = None
     def __init__(self, action_replay_code:str, line_number:int):
@@ -329,17 +329,23 @@ class ActionReplayCode(MemoryObject):
         res = ActionReplayCode.__PATTERN.fullmatch(action_replay_code)
 
         if res is None:
-            raise InvalidIniFileEntryError(f"Error - Arcode has to be in format: '0AXXXXXX XXXXXXXX' with A in [2,3,4,5] and X in [0-9a-fA-F] line {line_number} \"{action_replay_code}\".")
+            raise InvalidIniFileEntryError(f"Error - Arcode has to be in format: '0AXXXXXX XXXXXXXX' with A in [0,1,2,3,4,5] and X in [0-9a-fA-F] line {line_number} \"{action_replay_code}\".")
 
         # address = (first 4 bytes & 0x01FFFFFF) | 0x80000000
         address = (int(res[1], base=16) & 0x01FFFFFF) | 0x80000000
 
         # opcode = first byte & 0xFE
         self.__opcode = int(res[1][:2], base=16) & 0xFE
-        if self.__opcode not in [2, 4]:
-            raise InvalidIniFileEntryError(f"Error - ARCode has to be in format: '0AXXXXXX XXXXXXXX' with A in [2,3,4,5] and X in [0-9a-fA-F] line {line_number} \"{action_replay_code}\".")
+        if self.__opcode not in [0, 2, 4]:
+            raise InvalidIniFileEntryError(f"Error - ARCode has to be in format: '0AXXXXXX XXXXXXXX' with A in [0,1,2,3,4,5] and X in [0-9a-fA-F] line {line_number} \"{action_replay_code}\".")
 
-        datas = int(res[2], 16).to_bytes(4, "big") if self.__opcode == 0x04 else (int(res[2][:4], 16) + 1) * int(res[2][4:], 16).to_bytes(2, "big")
+        if self.__opcode == 0x04:
+            datas = int(res[2], 16).to_bytes(4, "big")
+        elif self.__opcode == 0x02:
+            datas = (int(res[2][:4], 16) + 1) * int(res[2][4:], 16).to_bytes(2, "big")
+        elif self.__opcode == 0x00:
+            datas = (int(res[2][:6], 16) + 1) * int(res[2][6:], 16).to_bytes(1, "big")
+
         length = len(datas)
 
         try:
@@ -492,7 +498,7 @@ class Dol:
                 unmapped_memory_object.align()
                 str_buffer += f"| {unmapped_memory_object.address():08x} | {unmapped_memory_object.end_address():08x} | {unmapped_memory_object.length():08x} |\n"
             print(str_buffer+"|"+"-"*32+"|")
-            #print("Use -par file.dol -ini arcodes.ini \"-auto\" to remap sections and allow complete processing of the ARCodes in this ini file. Else the patching process will be interupted for out of dol ARCodes.")
+            print("Use -par file.dol -ini arcodes.ini -o output.dol -sr to remap sections and allow complete processing of the ARCodes in this ini file. Else the patching process will be interupted for out of dol ARCodes.")
         else:
             print(f"No out of sections ARCodes found.\n")
     def patch_memory_objects(self, output_path:Path, memory_objects:list):
@@ -637,10 +643,11 @@ def get_argparser():
         "t be between 0 and 17")
     group.add_argument('-aar', '--analyse-action-replay', action='store_true', help="-aar source.dol action_replay.ini: Analyse an i"
         "ni file containing a list of [write] directives to show unmapped sections to add for processing all ARCodes including thoos"
-        "e who are in inexistant sections. Handle only ARCodes beginning with [02, 03, 04, 05].")
+        "e who are in inexistant sections. Handle only ARCodes beginning with [00, 01, 02, 03, 04, 05].")
     group.add_argument('-par', '--patch-action-replay', action='store_true', help="-par source.dol -ini action_replay.ini [-o output"
         "_path] [-sr]: Patch initialised data inside the dol with an ini file containing a list of [write] directives. Handle only A"
-        "RCodes beginning with [02, 03, 04, 05]. If -sr is specified then add or update .data sections to allow full ini processing.")
+        "RCodes beginning with [00, 01, 02, 03, 04, 05]. If -sr is specified then add or update .data sections to allow full ini proc"
+        "essing.")
     return parser
 
 
