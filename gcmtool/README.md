@@ -19,6 +19,14 @@ Print stats about the GCM/iso file or the unpacked GCM/iso folder. This stats co
 ```
 gcmtool.py --stats path -a 4 
 ```
+Unpack and rebuild the FST of the unpacked folder.
+```
+gcmtool.py -ur source_gcm.iso optional_dest_folder
+```
+Rebuild the FST of the unpacked folder and pack.
+```
+gcmtool.py -rp source_folder optional_dest_file.iso
+```
 Japanese charset is not handled for now except if you have installed Japanese local.
 
 The original GCM/iso and repack GCM/iso are different most of the time. This is because GCM DVD contains "empty spaces" with data unused (old datas or random datas I don't know). So this datas are useless and loss during unpack.
