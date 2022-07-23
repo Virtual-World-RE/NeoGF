@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -27,20 +27,19 @@ class InvalidFSTFileSizeError(Exception): pass
 class FSTDirNotFoundError(Exception): pass
 # raised during pack when FST file name is not found in the root folder; this happen when a file is renamed or removed
 class FSTFileNotFoundError(Exception): pass
-# raised during the stats command when align make file offsets collisions (this happen when given align > real files align); or when using an invalid align
+# raised when using an invalid align
 class BadAlignError(Exception): pass
 
 
-def align_offset(offset:int, align:int):
+def align_top(address:int, align:int):
     """
-    Give the upper rounded offset aligned using the align value.
-    input: offset = int
+    Give the upper rounded address aligned using the align value.
+    input: address = int
     input: align = int
-    return offset = int
+    return address = int
     """
-    if offset % align != 0:
-        offset += align - (offset % align)
-    return offset
+    if address % align == 0: return address
+    return address + align - (address % align)
 
 
 class Fst:
@@ -185,7 +184,7 @@ class FstTree(Fst):
         return fst_length = int
         """
         self.__generate_nameblock_length()
-        return align_offset(self.__count_childs(self.__root_node)*12 + 12 + self.__nameblock_length, self.__align)
+        return align_top(self.__count_childs(self.__root_node)*12 + 12 + self.__nameblock_length, self.__align)
     def __generate_nameblock_length(self, node:Node = None):
         """
         Recursive walk into the tree to get total name_block length.
@@ -230,7 +229,7 @@ class FstTree(Fst):
         else:
             node.set_offset(self.__current_file_offset)
             self.__fst_block += node.format()
-            self.__current_file_offset = align_offset(self.__current_file_offset + node.size(), self.__align)
+            self.__current_file_offset = align_top(self.__current_file_offset + node.size(), self.__align)
     def __count_childs(self, node:Folder):
         """
         Recursivly count total childs of a Node. It is usefull for getting next_dir id.
@@ -314,9 +313,7 @@ class BootBin:
 
 
 class Dol:
-    """
-    Dol is used to find the dol size and group data adding meaning to hex values and allowing to get it's size.
-    """
+    "Dol is used to find the dol size and group data adding meaning to hex values and allowing to get it's size."
     HEADER_LEN = 0x100
     HEADER_SECTIONLENTABLE_OFFSET = 0x90
     def get_dol_len(self, dolheader_data:bytes):
@@ -353,7 +350,7 @@ class Gcm:
         return min_offset
     def unpack(self, iso_path:Path, folder_path:Path):
         """
-        unpack takes an GCM/iso and unpack it in a folder.
+        Unpack takes an GCM/iso file and unpack it in a folder.
         input: iso_path = Path
         input: folder_path = Path
         """
@@ -444,9 +441,9 @@ class Gcm:
                     (currentdir_path / name).write_bytes( iso_file.read(filesize) )
 
                     logging.debug(f"{iso_path}(0x{fileoffset:x}:0x{fileoffset + filesize:x}) -> {currentdir_path / name}")
-    def pack(self, folder_path:Path, iso_path:Path = None):
+    def pack(self, folder_path:Path, iso_path:Path = None, disable_ignore:bool = False):
         """
-        pack takes a folder unpacked by the pack command and pack it in a GCM/iso file.
+        Pack takes a folder unpacked by the pack command and pack it in a GCM/iso file.
         input: folder_path = Path
         input: iso_path = Path
         """
@@ -479,7 +476,7 @@ class Gcm:
                 dol_offset = bootbin.dol_offset()
                 dol_end_offset = dol_offset + (sys_path / 'boot.dol').stat().st_size
                 # FST can be before the dol or after
-                if dol_offset < fstbin_offset < dol_end_offset or (fstbin_offset < dol_offset and dol_end_offset > self.__get_min_file_offset(fstbin_data)):
+                if not disable_ignore and (dol_offset < fstbin_offset < dol_end_offset or (fstbin_offset < dol_offset and dol_end_offset > self.__get_min_file_offset(fstbin_data))):
                     raise DolSizeOverflowError("Error - The dol size has been increased and overflow on next file or on FST. To solve this use --rebuild-fst.")
                 logging.debug(f"{sys_path / 'boot.dol'}      -> {iso_path}(0x{dol_offset:x}:0x{dol_end_offset:x})")
                 iso_file.seek( dol_offset )
@@ -548,12 +545,12 @@ class Gcm:
         root_path = folder_path / "root"
         sys_path = folder_path / "sys"
 
-        dol_offset = align_offset(Gcm.APPLOADER_OFFSET + (sys_path / "apploader.img").stat().st_size, align)
+        dol_offset = align_top(Gcm.APPLOADER_OFFSET + (sys_path / "apploader.img").stat().st_size, align)
         logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.DOLOFFSET_OFFSET:x} with new dol offset (0x{dol_offset:x})")
         bootbin = BootBin((sys_path / "boot.bin").read_bytes())
         bootbin.set_dol_offset(dol_offset)
         
-        fst_offset = align_offset(dol_offset + (sys_path / "boot.dol").stat().st_size, align)
+        fst_offset = align_top(dol_offset + (sys_path / "boot.dol").stat().st_size, align)
         logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.FSTOFFSET_OFFSET:x} with new FST offset (0x{fst_offset:x})")
         bootbin.set_fst_offset(fst_offset)
         
@@ -619,13 +616,21 @@ class Gcm:
         """
         (bootbin, apploader_size, dol_len, fstbin_data) = self.__get_sys_from_folder(path) if path.is_dir() else self.__get_sys_from_file(path)
 
-        # Begin offset - end offset - length - name
-        mapping_lists = [
-            [0, BootBin.LEN, f"{BootBin.LEN:08x}", "boot.bin"],
-            [0x440, Gcm.APPLOADER_OFFSET, f"{Gcm.BI2BIN_LEN:08x}", "bi2.bin"],
-            [Gcm.APPLOADER_OFFSET, Gcm.APPLOADER_OFFSET + apploader_size, f"{apploader_size:08x}", "apploader.img"],
-            [bootbin.fstbin_offset(), bootbin.fstbin_offset() + bootbin.fstbin_len(), f"{bootbin.fstbin_len():08x}", "fst.bin"],
-            [bootbin.dol_offset(), bootbin.dol_offset() + dol_len, f"{dol_len:08x}", "boot.dol"]]
+        class MemoryObject:
+            def __init__(self, name:str, beg_offset:int, length:int):
+                self.name = name
+                self.beg_offset = beg_offset
+                self.length = length
+                self.end_offset = beg_offset + length
+            def __str__(self):
+                return f"| {self.beg_offset:08x} | {self.end_offset:08x} | {self.length:08x} | {self.name}"
+
+        mem_obj_list = [
+            MemoryObject("boot.bin", 0, BootBin.LEN),
+            MemoryObject("bi2.bin", 0x440, Gcm.BI2BIN_LEN),
+            MemoryObject("apploader.img", Gcm.APPLOADER_OFFSET, apploader_size),
+            MemoryObject("fst.bin", bootbin.fstbin_offset(), bootbin.fstbin_len()),
+            MemoryObject("boot.dol", bootbin.dol_offset(), dol_len)]
 
         dir_id_path = {0: Path(".")}
         currentdir_path = Path(".")
@@ -656,34 +661,55 @@ class Gcm:
             else:
                 fileoffset = int.from_bytes(fstbin_data[i+4:i+8], "big", signed=False)
                 filesize   = int.from_bytes(fstbin_data[i+8:i+12], "big", signed=False)
-                mapping_lists.append( [fileoffset, fileoffset + filesize, f"{filesize:08x}", str(currentdir_path / name)] )
+                mem_obj_list.append( MemoryObject(str(currentdir_path / name), fileoffset, filesize) )
 
-        mapping_lists.sort(key=lambda x: x[0])
+        mem_obj_list.sort(key=lambda x: x.beg_offset)
 
-        empty_space_tuples = []
-        last_offset = 0
-        for i in range(len(mapping_lists)):
-            if last_offset < mapping_lists[i][0]:
-                empty_space_tuples.append( (f"{last_offset:08x}", f"{mapping_lists[i][0]:08x}", f"{mapping_lists[i][0] - last_offset:08x}", "") )
-            elif last_offset > mapping_lists[i][0]:
-                raise BadAlignError(f"Error - Bad align ({align})! Offsets collision.")
-            last_offset = align_offset(mapping_lists[i][1], align)
-            mapping_lists[i][0] = f"{mapping_lists[i][0]:08x}"
-            mapping_lists[i][1] = f"{mapping_lists[i][1]:08x}"
-
+        empty_space_list = []
+        collision_list = []
+        last_mem_obj = mem_obj_list[2]
+        for mem_obj in mem_obj_list[3:]:
+            last_aligned = align_top(last_mem_obj.end_offset, align)
+            if last_aligned < mem_obj.beg_offset:
+                empty_space_list.append( MemoryObject("", last_aligned, mem_obj.beg_offset - last_aligned) )
+            elif last_aligned > mem_obj.beg_offset:
+                collision_list += [last_mem_obj, mem_obj]
+            last_mem_obj = mem_obj
         print(f"# Stats for \"{path}\":")
-        self.__print("Global memory mapping:", mapping_lists)
-        self.__print(f"Empty spaces (align={align}):", empty_space_tuples)
-    def __print(self, title:str, lines_tuples):
+        self.__print("Global memory mapping:", mem_obj_list)
+        if empty_space_list:
+            self.__print(f"Empty spaces (align={align}):", empty_space_list)
+        if collision_list:
+            self.__print(f"Collisions (align={align}):", collision_list)
+    def __print(self, title:str, mem_obj_list):
         """
         Print a table with a title.
         * input: title = str
-        * input: lines_tuples = [(b_offset:str, e_offset:str, length:str, Name:str), ...]
+        * input: mem_obj_list = [MemoryObject, ...]
         """
-        stats_buffer = "#"*70+f"\n# {title}\n"+"#"*70+"\n| b offset | e offset | length   | Name\n|"+"-"*69+"\n"
-        for line in lines_tuples:
-            stats_buffer += "| "+" | ".join(line)+"\n"
-        print(stats_buffer, end='')
+        full_title = "#"*70+f"\n# {title}\n"+"#"*70+"\n| b offset | e offset | length   | Name\n|"+"-"*69+"\n"
+        print(full_title + "\n".join([str(mem_obj) for mem_obj in mem_obj_list]))
+
+
+def pack(p_input:Path, p_output:Path, disable_ignore):
+    logging.info("### Pack in new GCM iso")
+    if(p_output == Path(".")):
+        p_output = Path(p_input.with_suffix(".iso"))
+    logging.info(f"packing folder \"{p_input}\" in \"{p_output}\"")
+    gcm.pack(p_input, p_output, disable_ignore)
+
+
+def unpack(p_input:Path, p_output:Path):
+    logging.info("### Unpack GCM iso in new folder")
+    gcm.unpack(p_input, p_output)
+
+
+def rebuild_fst(p_input:Path, align):
+    logging.info("### Rebuilding FST and patching boot.bin")
+    if args.align < 1:
+        raise BadAlignError("Error - Align must be > 0.")
+    logging.info(f"Using alignment: {args.align}")
+    gcm.rebuild_fst(p_input, align)
 
 
 def get_argparser():
@@ -692,14 +718,17 @@ def get_argparser():
     parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
     parser.add_argument('-a', '--align', type=int, help='-a=10: alignment of files in the GCM ISO (default value is 4)', default=4)
+    parser.add_argument('-di', '--disable-ignore', action='store_true', help='-di: disable dol collisions verification when packing files sharing the same place in the GCM.')
     parser.add_argument('input_path', metavar='INPUT', help='')
     parser.add_argument('output_path', metavar='OUTPUT', help='', nargs='?', default="")
 
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-p', '--pack', action='store_true', help="-p source_folder (dest_file.iso): Pack source_folder in new file source_folder.iso or dest_file.iso if specified")
-    group.add_argument('-u', '--unpack', action='store_true', help="-u source_iso.iso (dest_folder): Unpack the GCM/ISO in new folder source_iso or dest_folder if specified")
+    group.add_argument('-p', '--pack', action='store_true', help="-p source_folder (dest_file.iso): Pack source_folder in new file source_folder.iso or dest_file.iso if specified.")
+    group.add_argument('-u', '--unpack', action='store_true', help="-u source_iso.iso (dest_folder): Unpack the GCM/ISO in new folder source_iso or dest_folder if specified.")
     group.add_argument('-s', '--stats', action='store_true', help="-s source_iso.iso or source_folder: Get stats about GCM, FST, memory, lengths and offsets.")
-    group.add_argument('-r', '--rebuild-fst', action='store_true', help="-r game_folder: Rebuild the game_folder/sys/fst.bin using files in game_folder/root")
+    group.add_argument('-r', '--rebuild-fst', action='store_true', help="-r game_folder: Rebuild the game_folder/sys/fst.bin using files in game_folder/root.")
+    group.add_argument('-ur', '--unpack-rebuild-fst', action='store_true', help="-ur source_iso.iso (dest_folder): Unpack and rebuild the FST.")
+    group.add_argument('-rp', '--rebuild-fst-pack', action='store_true', help="-rp source_folder (dest_file.iso): Rebuild the FST and pack.")
     return parser
 
 
@@ -715,19 +744,16 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.DEBUG)
 
     if args.pack:
-        logging.info("### Pack in new GCM iso")
-        if(p_output == Path(".")):
-            p_output = Path(p_input.with_suffix(".iso"))
-        logging.info(f"packing folder \"{p_input}\" in \"{p_output}\"")
-        gcm.pack(p_input, p_output)
+        pack(p_input, p_output, args.disable_ignore)
     elif args.unpack:
-        logging.info("### Unpack GCM iso in new folder")
-        gcm.unpack(p_input, p_output)
+        unpack(p_input, p_output)
     elif args.stats:
         gcm.stats(p_input)
     elif args.rebuild_fst:
-        logging.info("### Rebuilding FST and patching boot.bin")
-        if args.align < 1:
-            raise BadAlignError("Error - Align must be > 0.")
-        logging.info(f"Using alignment: {args.align}")
-        gcm.rebuild_fst(p_input, args.align)
+        rebuild_fst(p_input, args.align)
+    elif args.rebuild_fst_pack:
+        rebuild_fst(p_input, args.align)
+        pack(p_input, p_output, args.disable_ignore)
+    elif args.unpack_rebuild_fst:
+        unpack(p_input, p_output)
+        rebuild_fst(p_output, args.align)
