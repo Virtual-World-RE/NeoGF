@@ -7,7 +7,7 @@ from gcmtool import Gcm
 from gcmtool import InvalidDVDMagicError, InvalidUnpackFolderError, InvalidPackIsoError, InvalidFSTSizeError, DolSizeOverflowError, InvalidRootFileFolderCountError, InvalidFSTFileSizeError, FSTDirNotFoundError, FSTFileNotFoundError, BadAlignError
 
 
-__version__ = "0.0.8"
+__version__ = "0.0.9"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -103,8 +103,8 @@ def compare_GCM(folder1: Path, folder2: Path):
 def gcmtool_unpack(iso_path:Path, folder_path:Path):
     if os.system(f"python gcmtool.py -u \"{iso_path}\" \"{folder_path}\"") != 0:
         raise Exception("Error while unpacking GCM.")
-def gcmtool_pack(folder_path:Path, iso_path:Path):
-    if os.system(f"python gcmtool.py -p \"{folder_path}\" \"{iso_path}\"") != 0:
+def gcmtool_pack(folder_path:Path, iso_path:Path, disable_ignore:bool = False):
+    if os.system(f"python gcmtool.py -p {'-di' if disable_ignore else ''} \"{folder_path}\" \"{iso_path}\"") != 0:
         raise Exception("Error while packing GCM.")
 def gcmtool_rebuild_fst(folder_path:Path):
     if os.system(f"python gcmtool.py -r \"{folder_path}\"") != 0:
@@ -158,7 +158,7 @@ print("#########################################################################
 repack_path.mkdir()
 unpack_paths = list(unpack_path.glob("*"))
 for folder_path in unpack_paths:
-    gcmtool_pack(folder_path, repack_path / folder_path.name)
+    gcmtool_pack(folder_path, repack_path / folder_path.name, disable_ignore = folder_path.name == "Metroid Prime (USA).iso")
 
 # unpack repack_path unpack2_path
 unpack2_path.mkdir()
@@ -187,7 +187,7 @@ for folder_path in unpack_paths:
 # repack unpack_path repack_path
 repack_path.mkdir()
 for folder_path in unpack_paths:
-    gcmtool_pack(folder_path, repack_path / folder_path.name)
+    gcmtool_pack(folder_path, repack_path / folder_path.name, disable_ignore = folder_path.name == "Metroid Prime (USA).iso")
 
 # unpack repack_path unpack2_path
 unpack2_path.mkdir()
@@ -293,12 +293,6 @@ try:
 except FSTFileNotFoundError:
     print("Correct FSTFileNotFoundError triggered.")
 new_file.rename(first_unpacked_file)
-
-try:
-    gcm.stats(first_unpacked, 0x800)
-    raise Exception("Error - BadAlignError should have been triggered.")
-except BadAlignError:
-    print("Correct BadAlignError triggered.")
 
 #| 0001ec00 | 0023f9a0 | 00220da0 | boot.dol
 #| 0023fa00 | 00276058 | 00036658 | fst.bin
