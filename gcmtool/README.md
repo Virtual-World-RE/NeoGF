@@ -7,7 +7,7 @@ Unpack GCM/iso file **source_gcm.iso** in the default new folder _game_code-DVD_
 gcmtool.py --unpack source_gcm.iso optional_dest_folder
 ```
 
-Pack **source_folder** in the default new GCM/iso file _source_folder.iso_. If optional_dest_file.iso is specified we pack in _optional_dest_file.iso_. If one of the files or system files contains length change we have to use --rebuild-fst command before packing.
+Pack **source_folder** in the default new GCM/iso file _source_folder.iso_. If optional_dest_file.iso is specified we pack in _optional_dest_file.iso_. If one of the files or system files contains length change we have to use --rebuild-fst command before packing. If the dol is duplicated in the FST use --disable-ignore to allow shared dol space.
 ```
 gcmtool.py --pack source_folder optional_dest_file.iso
 ```
