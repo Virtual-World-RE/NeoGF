@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-from pathlib import Path
+from configparser import ConfigParser
+from gcmtool import Gcm
+from gcmtool import InvalidDVDMagicError, InvalidUnpackFolderError, InvalidPackIsoError, \
+    InvalidFSTSizeError, DolSizeOverflowError, InvalidRootFileFolderCountError, \
+    InvalidFSTFileSizeError, FSTDirNotFoundError, FSTFileNotFoundError, BadAlignError, \
+    FstSizeOverflowError, InvalidConfValueError, ApploaderOverflowError
 import os
+from pathlib import Path
 import shutil
 from time import time
-from gcmtool import Gcm
-from gcmtool import InvalidDVDMagicError, InvalidUnpackFolderError, InvalidPackIsoError, InvalidFSTSizeError, DolSizeOverflowError, InvalidRootFileFolderCountError, InvalidFSTFileSizeError, FSTDirNotFoundError, FSTFileNotFoundError, BadAlignError
 
 
-__version__ = "0.0.9"
+__version__ = "0.0.10"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -114,7 +118,7 @@ def gcmtool_stats(path:Path):
         raise Exception("Error while getting stats.")
 
 
-TEST_COUNT = 5
+TEST_COUNT = 7
 
 start = time()
 print("###############################################################################")
@@ -125,6 +129,7 @@ if unpack_path.is_dir() or unpack2_path.is_dir() or repack_path.is_dir():
     raise Exception(f"Error - Please remove:\n-{unpack_path}\n-{unpack2_path}\n-{repack_path}")
 
 test_storage()
+
 print("###############################################################################")
 print(f"# TEST 1/{TEST_COUNT}")
 print("# Comparing roms_path->unpack->[unpack_path] ROMs with [dolphin_unpack_path]")
@@ -201,7 +206,6 @@ for folder_path in unpack_path.glob("*"):
 # remove unpack2_path
 shutil.rmtree(unpack_path)
 shutil.rmtree(unpack2_path)
-
 print("###############################################################################")
 print(f"# TEST 5/{TEST_COUNT}")
 print("# Testing exceptions.")
@@ -251,13 +255,13 @@ except InvalidFSTSizeError:
     print("Correct InvalidFSTSizeError triggered.")
 (first_unpacked / "sys/fst.bin").write_bytes(fst_data)
 
-(first_unpacked / "root/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").mkdir()
+(first_unpacked / ("root/" + "a"*36)).mkdir()
 try:
     gcm.pack(first_unpacked, repack_path / (first_unpacked.stem + "except.iso"))
     raise Exception("Error - InvalidRootFileFolderCountError should have been triggered.")
 except InvalidRootFileFolderCountError:
     print("Correct InvalidRootFileFolderCountError triggered.")
-(first_unpacked / "root/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").rmdir()
+(first_unpacked / ("root/" + "a"*36)).rmdir()
 
 first_unpacked_file = None
 first_unpacked_dir = None
@@ -278,7 +282,7 @@ except InvalidFSTFileSizeError:
     print("Correct InvalidFSTFileSizeError triggered.")
 first_unpacked_file.write_bytes(first_unpacked_file_data)
 
-new_dir = first_unpacked_dir.rename(first_unpacked_dir.parent / (first_unpacked_dir.name +"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+new_dir = first_unpacked_dir.rename(first_unpacked_dir.parent / (first_unpacked_dir.name +"a"*36))
 try:
     gcm.pack(first_unpacked, repack_path / (first_unpacked.stem + "except.iso"))
     raise Exception("Error - FSTDirNotFoundError should have been triggered.")
@@ -286,7 +290,7 @@ except FSTDirNotFoundError:
     print("Correct FSTDirNotFoundError triggered.")
 new_dir.rename(first_unpacked_dir)
 
-new_file = first_unpacked_file.rename(first_unpacked_file.parent / (first_unpacked_file.name +"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+new_file = first_unpacked_file.rename(first_unpacked_file.parent / (first_unpacked_file.name +"a"*36))
 try:
     gcm.pack(first_unpacked, repack_path / (first_unpacked.stem + "except.iso"))
     raise Exception("Error - FSTFileNotFoundError should have been triggered.")
@@ -340,10 +344,336 @@ try:
 except DolSizeOverflowError:
     print("Correct DolSizeOverflowError triggered.")
 
-# Remove tests folders
+with (first_unpacked / "sys/boot.dol").open("wb") as first_unpacked_file:
+    first_unpacked_file.seek(0x222cff)
+    first_unpacked_file.write(b"\x00")
+
+# max fst_size = 55300 - 1ec00 = 36700
+with (first_unpacked / "sys/fst.bin").open("rb+") as first_unpacked_file:
+    first_unpacked_file.seek(0x366ff)
+    first_unpacked_file.write(b"\x00")
+with (first_unpacked / "sys/boot.bin").open("rb+") as first_unpacked_file:
+    first_unpacked_file.seek(0x428)
+    first_unpacked_file.write(b"\x00\x03\x67\x00") # FST len
+    first_unpacked_file.write(b"\x00\x03\x67\x00") # FST max len
+gcm.pack(first_unpacked, repack_path / (first_unpacked.stem + "ok3.iso"))
+print("Correct pack with max FST size before dol.")
+
+with (first_unpacked / "sys/fst.bin").open("rb+") as first_unpacked_file:
+    first_unpacked_file.seek(0x36700)
+    first_unpacked_file.write(b"\x00")
+with (first_unpacked / "sys/boot.bin").open("rb+") as first_unpacked_file:
+    first_unpacked_file.seek(0x428)
+    first_unpacked_file.write(b"\x00\x03\x67\x01") # FST len
+    first_unpacked_file.write(b"\x00\x03\x67\x01") # FST max len
+try:
+    gcm.pack(first_unpacked, repack_path / (first_unpacked.stem + "except.iso"))
+    raise Exception("Error - FstSizeOverflowError should have been triggered.")
+except FstSizeOverflowError:
+    print("Correct FstSizeOverflowError triggered.")
+
+#| 0001ec00 |   241900 |   222d00 | boot.dol
+#| 00241900 | ?        | ?        | fst.bin
+#| 00278000 | 005111de | 002991de | game.MAP
+# fst max len = 278000 - 241900 = 36700
+with (first_unpacked / "sys/boot.bin").open("rb+") as first_unpacked_file:
+    first_unpacked_file.seek(0x420)
+    first_unpacked_file.write(b"\x00\x01\xec\x00") # dol offset
+    first_unpacked_file.write(b"\x00\x24\x19\x00") # FST offset
+    first_unpacked_file.write(b"\x00\x03\x67\x00") # FST len
+    first_unpacked_file.write(b"\x00\x03\x67\x00") # FST max len
+with (first_unpacked / "sys/fst.bin").open("rb+") as first_unpacked_file:
+    first_unpacked_file.seek(0x36700)
+    first_unpacked_file.truncate()
+gcm.pack(first_unpacked, repack_path / (first_unpacked.stem + "ok4.iso"))
+print("Correct pack with max FST size before first file.")
+
+with (first_unpacked / "sys/boot.bin").open("rb+") as first_unpacked_file:
+    first_unpacked_file.seek(0x428)
+    first_unpacked_file.write(b"\x00\x03\x67\x01") # FST len
+    first_unpacked_file.write(b"\x00\x03\x67\x01") # FST max len
+with (first_unpacked / "sys/fst.bin").open("rb+") as first_unpacked_file:
+    first_unpacked_file.seek(0x36700)
+    first_unpacked_file.write(b"\x00")
+try:
+    gcm.pack(first_unpacked, repack_path / (first_unpacked.stem + "except.iso"))
+    raise Exception("Error - FstSizeOverflowError should have been triggered.")
+except FstSizeOverflowError:
+    print("Correct FstSizeOverflowError triggered.")
+
+shutil.rmtree(repack_path)
+shutil.rmtree(unpack_path)
+
+print("###############################################################################")
+print(f"# TEST 6/{TEST_COUNT}")
+print("# Testing system.conf values.")
+print("###############################################################################")
+# unpack a ROM in unpack_path
+unpack_path.mkdir(parents=True)
+repack_path.mkdir(parents=True)
+first_unpacked = None
+for iso_path in roms_path.glob("*"):
+    if iso_path.is_file():
+        first_unpacked = unpack_path / iso_path.name
+        gcmtool_unpack(iso_path, first_unpacked)
+
+        delete_files = False
+        for path in (first_unpacked / "root").glob("*/**"):
+            if path.is_file:
+                delete_files = True
+            if delete_files and path.is_file():
+                path.unlink()
+        gcmtool_rebuild_fst(first_unpacked)
+        break
+
+config = ConfigParser(allow_no_value=True) # allow_no_value to allow adding comments
+config.optionxform = str # makes options case sensitive
+config.read(first_unpacked / "sys/system.conf")
+config["Default"]["boot.bin_section"] = "enabled"
+config["Default"]["bi2.bin_section"] = "enabled"
+config["Default"]["apploader.img_section"] = "enabled"
+
+bootbin_expected_data = bytearray( (first_unpacked / "sys/boot.bin").read_bytes() )
+bi2bin_expected_data = bytearray( (first_unpacked / "sys/bi2.bin").read_bytes() )
+apploaderimg_expected_data = bytearray( (first_unpacked / "sys/apploader.img").read_bytes() )
+
+def test_config_pack(section:str, var_name:str, value):
+    "Change a var in sys/system.conf and check if pack apply new conf on sys/ files and packed iso."
+    global first_unpacked
+    global config
+    global bootbin_expected_data
+    global bi2bin_expected_data
+    global apploaderimg_expected_data
+    config[section][var_name] = value
+    with (first_unpacked / "sys/system.conf").open("w") as conf_file:
+        config.write(conf_file)
+    repacked_path = repack_path / first_unpacked.name
+    gcmtool_pack(first_unpacked, repacked_path)
+
+    apploaderimg_data = (first_unpacked / "sys/apploader.img").read_bytes()
+    if (first_unpacked / "sys/boot.bin").read_bytes() != bootbin_expected_data or \
+        (first_unpacked / "sys/bi2.bin").read_bytes() != bi2bin_expected_data or \
+        apploaderimg_data != apploaderimg_expected_data:
+        raise Exception(f"Error - Invalid sys files [{section}][{var_name}] patched value: {value}.")
+
+    apploader_size = int.from_bytes(apploaderimg_data[0x14:0x18], "big") + int.from_bytes(apploaderimg_data[0x18:0x1c], "big") + 32
+
+    with repacked_path.open("rb+") as iso_path:
+        if iso_path.read(0x440) != bootbin_expected_data or \
+            iso_path.read(0x2000) != bi2bin_expected_data or \
+            iso_path.read(apploader_size) != apploaderimg_expected_data:
+            raise Exception(f"Error - Invalid iso value after [{section}][{var_name}] patched value: {value}.")
+    print(f"Correct [{section}][{var_name}] patched value: {value}.")
+    (repack_path / first_unpacked.name).unlink()
+
+bootbin_expected_data[:4] = b"ABCD"
+test_config_pack("boot.bin", "GameCode", "ABCD")
+bootbin_expected_data[4:6] = b"EF"
+test_config_pack("boot.bin", "MakerCode", "EF")
+bootbin_expected_data[6:7] = b"\x05"
+test_config_pack("boot.bin", "DiskNumber", "5")
+bootbin_expected_data[7:8] = b"\x12"
+test_config_pack("boot.bin", "GameVersion", "18")
+bootbin_expected_data[8:9] = b"\x01"
+test_config_pack("boot.bin", "AudioStreaming", "1")
+bootbin_expected_data[8:9] = b"\x00"
+test_config_pack("boot.bin", "AudioStreaming", "0")
+bootbin_expected_data[9:10] = b"\x06"
+test_config_pack("boot.bin", "StreamBufferSize", "6")
+# test_config_pack("boot.bin", "DVDMagic", )
+bootbin_expected_data[0x20:0x60] = b"a b:cdef_ghi-jklmnopqrstuvwxyza b:cdef_ghi-jklmnopqrstuvwxyz0123"
+test_config_pack("boot.bin", "GameName", "a b:cdef_ghi-jklmnopqrstuvwxyza b:cdef_ghi-jklmnopqrstuvwxyz0123")
+bootbin_expected_data[0x20:0x60] = b"zyxw" + b"\x00" * 60
+test_config_pack("boot.bin", "GameName", "zyxw")
+
+dol_offset = int.from_bytes(bootbin_expected_data[0x420:0x424], "big")
+with (first_unpacked / "sys/boot.dol").open("rb+") as dol_file:
+    dol_file.seek(0x1000)
+    dol_file.truncate()
+
+bootbin_expected_data[0x420:0x424] = (dol_offset + 0x200).to_bytes(4, "big")
+test_config_pack("boot.bin", "DolOffset", f"0x{dol_offset + 0x200:x}")
+bootbin_expected_data[0x424:0x428] = (dol_offset + 0x200 + 0x1000).to_bytes(4, "big")
+test_config_pack("boot.bin", "FstOffset", f"0x{dol_offset + 0x200 + 0x1000:x}")
+
+fst_len = int.from_bytes(bootbin_expected_data[0x428:0x42c], "big")
+with (first_unpacked / "sys/fst.bin").open("rb+") as fst_file:
+    fst_file.seek(fst_len + 0x200)
+    fst_file.truncate()
+
+bootbin_expected_data[0x428:0x42c] = (fst_len + 0x200).to_bytes(4, "big")
+test_config_pack("boot.bin", "FstLen", f"0x{fst_len + 0x200:x}")
+bootbin_expected_data[0x42c:0x430] = b"\xab\xcd\xef\x12"
+test_config_pack("boot.bin", "FstMaxLen", "0xabcdef12")
+
+bi2bin_expected_data[:4] = b"\x12\x13\x14\x20"
+test_config_pack("bi2.bin", "DebugMonitorSize", "0x12131420")
+bi2bin_expected_data[4:8] = b"\x21\x32\x43\x00"
+test_config_pack("bi2.bin", "SimulatedMemorySize", "0x21324300")
+bi2bin_expected_data[8:12] = b"\x65\x43\x21\x00"
+test_config_pack("bi2.bin", "ArgumentOffset", "0x65432100")
+bi2bin_expected_data[0xc:0x10] = b"\x00\x00\x00\x03"
+test_config_pack("bi2.bin", "DebugFlag", "3")
+bi2bin_expected_data[0x10:0x14] = b"\x51\x36\x27\x19"
+test_config_pack("bi2.bin", "TrackLocation", "0x51362719")
+bi2bin_expected_data[0x14:0x18] = b"\x95\x82\x31\x45"
+test_config_pack("bi2.bin", "TrackSize", "0x95823145")
+bi2bin_expected_data[0x18:0x1c] = b"\x00\x00\x00\x04"
+test_config_pack("bi2.bin", "CountryCode", "4")
+bi2bin_expected_data[0x1c:0x20] = b"\x00\x00\x00\x45"
+test_config_pack("bi2.bin", "TotalDisk", "45")
+bi2bin_expected_data[0x20:0x24] = b"\x00\x00\x00\x01"
+test_config_pack("bi2.bin", "LongFileNameSupport", "1")
+bi2bin_expected_data[0x20:0x24] = b"\x00\x00\x00\x00"
+test_config_pack("bi2.bin", "LongFileNameSupport", "0")
+
+apploaderimg_expected_data[:10] = b"dfghisdfgq"
+test_config_pack("apploader.img", "Version", "dfghisdfgq")
+apploaderimg_expected_data[:10] = b"123" + b"\x00" * 7
+test_config_pack("apploader.img", "Version", "123")
+apploaderimg_expected_data[0x10:0x14] = b"\x81\x12\x34\x56"
+test_config_pack("apploader.img", "EntryPoint", "0x81123456")
+config["apploader.img"]["Size"] = "0x2000"
+apploaderimg_expected_data[0x14:0x18] = b"\x00\x00\x20\x00"
+apploaderimg_expected_data[0x18:0x1c] = b"\x00\x00\x10\x23"
+with (first_unpacked / "sys/apploader.img").open("rb+") as apploaderimg_file:
+    apploaderimg_file.seek(0x3043)
+    apploaderimg_file.truncate()
+    apploaderimg_expected_data = apploaderimg_expected_data[:0x3043]
+
+test_config_pack("apploader.img", "TrailerSize", "0x1023")
+
+print("###############################################################################")
+print(f"# TEST 7/{TEST_COUNT}")
+print("# Testing system.conf exceptions.")
+print("###############################################################################")
+gcm = Gcm()
+def test_conf_pack_except(section:str, var_name:str, value):
+    global first_unpacked
+    global config
+    
+    repacked_path = repack_path / first_unpacked.name
+
+    conf_back = config[section][var_name]
+    config[section][var_name] = value
+    with (first_unpacked / "sys/system.conf").open("w") as conf_file:
+        config.write(conf_file)
+    try:
+        gcm.pack(first_unpacked, repacked_path)
+        raise Exception("Error - InvalidConfValueError should have been triggered.")
+    except InvalidConfValueError:
+        print("Correct InvalidConfValueError triggered.")
+
+    config[section][var_name] = conf_back
+    with (first_unpacked / "sys/system.conf").open("w") as conf_file:
+        config.write(conf_file)
+
+test_conf_pack_except("boot.bin", "GameCode", "abcde")
+test_conf_pack_except("boot.bin", "MakerCode", "abc")
+test_conf_pack_except("boot.bin", "DiskNumber", "99")
+test_conf_pack_except("boot.bin", "GameVersion", "100")
+test_conf_pack_except("boot.bin", "AudioStreaming", "2")
+test_conf_pack_except("boot.bin", "StreamBufferSize", "16")
+#test_conf_pack_except("boot.bin", "DVDMagic", )
+test_conf_pack_except("boot.bin", "GameName", "a" * 65)
+test_conf_pack_except("boot.bin", "DolOffset", "123")
+test_conf_pack_except("boot.bin", "DolOffset", "0x180000000")
+test_conf_pack_except("boot.bin", "FstOffset", "231")
+test_conf_pack_except("boot.bin", "FstOffset", "0x180000000")
+test_conf_pack_except("boot.bin", "FstLen", "231")
+test_conf_pack_except("boot.bin", "FstLen", "0x180000000")
+test_conf_pack_except("boot.bin", "FstMaxLen", "231")
+test_conf_pack_except("boot.bin", "FstMaxLen", "0x180000000")
+
+test_conf_pack_except("bi2.bin", "DebugMonitorSize", "231")
+test_conf_pack_except("bi2.bin", "DebugMonitorSize", "0x80000001")
+test_conf_pack_except("bi2.bin", "DebugMonitorSize", "0x180000000")
+test_conf_pack_except("bi2.bin", "SimulatedMemorySize", "231")
+test_conf_pack_except("bi2.bin", "SimulatedMemorySize", "0x80000001")
+test_conf_pack_except("bi2.bin", "SimulatedMemorySize", "0x180000000")
+test_conf_pack_except("bi2.bin", "ArgumentOffset", "231")
+test_conf_pack_except("bi2.bin", "ArgumentOffset", "0x180000000")
+test_conf_pack_except("bi2.bin", "DebugFlag", "0x1")
+test_conf_pack_except("bi2.bin", "DebugFlag", f"{0x1ffffffff}")
+test_conf_pack_except("bi2.bin", "TrackLocation", "231")
+test_conf_pack_except("bi2.bin", "TrackLocation", "0x180000000")
+test_conf_pack_except("bi2.bin", "TrackSize", "231")
+test_conf_pack_except("bi2.bin", "TrackSize", "0x180000000")
+test_conf_pack_except("bi2.bin", "CountryCode", "3")
+test_conf_pack_except("bi2.bin", "CountryCode", "5")
+test_conf_pack_except("bi2.bin", "TotalDisk", "100")
+test_conf_pack_except("bi2.bin", "TotalDisk", "0x5")
+test_conf_pack_except("bi2.bin", "LongFileNameSupport", "3")
+
+test_conf_pack_except("apploader.img", "Version", "a" * 11)
+test_conf_pack_except("apploader.img", "EntryPoint", "231")
+test_conf_pack_except("apploader.img", "EntryPoint", "0x180000000")
+test_conf_pack_except("apploader.img", "Size", "231")
+test_conf_pack_except("apploader.img", "Size", "0x180000000")
+test_conf_pack_except("apploader.img", "TrailerSize", "231")
+test_conf_pack_except("apploader.img", "TrailerSize", "0x180000000")
+
+first_unpacked = unpack_path / "Gotcha Force (Europe) (En,Fr,De).iso"
+gcmtool_unpack(roms_path / "Gotcha Force (Europe) (En,Fr,De).iso", first_unpacked)
+
+# | 00002440 | 0001f664 | 0001d224 | apploader.img
+# | 0001f700 | 003dcb00 | 003bd400 | boot.dol
+# | 003dcb00 | 003dcbaa | 000000aa | fst.bin
+# | 003e0000 | 003e1fa0 | 00001fa0 | opening.bnr
+# change apploader size & trailer size to match boot.dol
+# 1f700 - (2440 + 32) = 1d2a0
+with (first_unpacked / "sys/apploader.img").open("rb+") as apploaderimg_file:
+    apploaderimg_file.seek(0x14)
+    apploaderimg_file.write(b"\x00\x00\xd2\xa0") # size
+    apploaderimg_file.write(b"\x00\x01\x00\x00") # trailer_size
+    apploaderimg_file.seek(0x1d29f + 32)
+    apploaderimg_file.write(b"\x00")
+gcmtool_pack(first_unpacked, repack_path / "ok1.iso")
+print("Correct apploader patch with max size before dol.")
+
+gcm = Gcm()
+# change apploader size & trailer size to overflow 1 byte on boot.dol
+with (first_unpacked / "sys/apploader.img").open("rb+") as apploaderimg_file:
+    apploaderimg_file.seek(0x14)
+    apploaderimg_file.write(b"\x00\x00\xd2\xa1") # size
+    apploaderimg_file.seek(0x1d2a0 + 32)
+    apploaderimg_file.write(b"\x00")
+try:
+    gcm.pack(first_unpacked, repack_path / "except.iso")
+    raise Exception("Error - ApploaderOverflowError should have been triggered.")
+except ApploaderOverflowError:
+    print("Correct ApploaderOverflowError triggered: apploader overfloweing on dol.")
+
+# | 00002440 | 0001f701 | 0001f701 | apploader.img
+# | 0001f700 | 003dcb00 | 003bd400 | boot.dol
+# | 003dcb00 | 003dcbaa | 000000aa | fst.bin
+# | 003e0000 | 003e1fa0 | 00001fa0 | opening.bnr
+# change apploader size & trailer size to match boot.dol
+# 1f700 - (0x2440 + 32) = 2460
+gcm = Gcm()
+with (first_unpacked / "sys/boot.bin").open("rb+") as bootbin_file:
+    bootbin_file.seek(0x420)
+    bootbin_file.write(b"\x00\x01\xf8\x00") # dol offset
+    bootbin_file.write(b"\x00\x01\xf7\x00") # fst offset
+try:
+    gcm.pack(first_unpacked, repack_path / "except.iso")
+    raise Exception("Error - ApploaderOverflowError should have been triggered.")
+except ApploaderOverflowError:
+    print("Correct ApploaderOverflowError triggered: apploader overfloweing on fst.")
+
+gcm = Gcm()
+with (first_unpacked / "sys/apploader.img").open("rb+") as apploaderimg_file:
+    apploaderimg_file.seek(0x14)
+    apploaderimg_file.write(b"\x00\x00\xd2\xa0") # size
+    apploaderimg_file.seek(0x1d2a0 + 32)
+    apploaderimg_file.truncate()
+gcm.pack(first_unpacked, repack_path / "ok2.iso")
+print("Correct apploader patch with max size before fst.")
+
 print("###############################################################################")
 print(f"# Cleaning test folders.")
 print("###############################################################################")
+# Remove tests folders
 shutil.rmtree(repack_path)
 shutil.rmtree(unpack_path)
 
