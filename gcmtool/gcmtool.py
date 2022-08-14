@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 
 
-__version__ = "0.1.4"
+__version__ = "0.2.0"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -39,15 +39,15 @@ class InvalidConfValueError(Exception): pass
 class ApploaderOverflowError(Exception): pass
 
 
-def align_top(address:int, align:int):
+def align_top(offset:int, align:int):
     """
-    Give the upper rounded address aligned using the align value.
-    input: address = int
+    Give the upper rounded offset aligned using the align value.
+    input: offset = int
     input: align = int
-    return address = int
+    return offset = int
     """
-    if address % align == 0: return address
-    return address + align - (address % align)
+    if offset % align == 0: return offset
+    return offset + align - (offset % align)
 
 
 class Fst:
@@ -150,6 +150,7 @@ class FstTree(Fst):
     * root_path = Path (the part with folder that are out of the tree)
     * fst_offset = int (to know where is the current min offset before 
         adding the fst and name_block length)
+        has to be aligned
     * align = int (It could change in some GCM)
     """
     # When we walk recursivly in a path we don't wan't to add theirs out parents so it allow to stop at the folder we choose as root
@@ -164,7 +165,11 @@ class FstTree(Fst):
     __name_block = None
     # Used to find min file_offset when fst is at the end of the iso beginning (otherweise we can't know the first available offset)
     __nameblock_length = None
-    def __init__(self, root_path:Path, fstbin_offset:int, align:int = 4):
+    __user_position = None
+    __user_length = None
+    # FST high tell if fst is after dol
+    __is_fst_last = None
+    def __init__(self, root_path:Path, offset:int, is_fst_last:bool, align:int = 4):
         # as said before we don't want to add parents folder that don't are used in the folder we are packing.
         self.__root_path_length = len(root_path.parts)
         self.__root_node = Folder(root_path.name, None)
@@ -172,7 +177,8 @@ class FstTree(Fst):
         self.__name_block = b""
         self.__fst_block = b""
         self.__nameblock_length = 0
-        self.__current_file_offset = fstbin_offset
+        self.__current_file_offset = offset
+        self.__is_fst_last = is_fst_last
     def __str__(self):
         return self.__to_str(self.__root_node)
     def __to_str(self, node:Node, depth=0):
@@ -275,9 +281,14 @@ class FstTree(Fst):
         The hard part Here is that we have to know the result before
         knowing where we can begin to add files.
         """
-        self.__current_file_offset += self.__get_fst_length()
+        if self.__is_fst_last:
+            self.__current_file_offset += self.__get_fst_length() # aligned + aligned = aligned
+        self.__user_position = self.__current_file_offset
         self.__prepare()
+        self.__user_length = self.__current_file_offset - self.__user_position
         return self.__fst_block + self.__name_block
+    def user_position(self): return self.__user_position
+    def user_length(self):   return self.__user_length
 
 
 class BootBin:
@@ -310,6 +321,8 @@ class BootBin:
     def fst_offset(self):         return int.from_bytes(self.__data[BootBin.FSTOFFSET_OFFSET:BootBin.FSTOFFSET_OFFSET+4],"big")
     def fst_len(self):            return int.from_bytes(self.__data[BootBin.FSTLEN_OFFSET:BootBin.FSTLEN_OFFSET+4],"big")
     def fst_max_len(self):        return int.from_bytes(self.__data[BootBin.FSTMAXLEN_OFFSET:BootBin.FSTMAXLEN_OFFSET+4],"big")
+    def user_position(self):      return int.from_bytes(self.__data[0x434:0x438],"big")
+    def user_length(self):        return int.from_bytes(self.__data[0x438:0x43c],"big")
     def set_game_code(self, game_code:str):
         self.__data[:4] = bytes(game_code, "ascii")
     def set_maker_code(self, maker_code:str):
@@ -330,10 +343,14 @@ class BootBin:
         self.__data[BootBin.DOLOFFSET_OFFSET:BootBin.DOLOFFSET_OFFSET+4] = offset.to_bytes(4, "big")
     def set_fst_offset(self, offset:int):
         self.__data[BootBin.FSTOFFSET_OFFSET:BootBin.FSTOFFSET_OFFSET+4] = offset.to_bytes(4, "big")
-    def set_fst_len(self, size:int):
-        self.__data[BootBin.FSTLEN_OFFSET:BootBin.FSTLEN_OFFSET+4] = size.to_bytes(4, "big")
-    def set_fst_max_len(self, size:int):
-        self.__data[BootBin.FSTMAXLEN_OFFSET:BootBin.FSTMAXLEN_OFFSET+4] = size.to_bytes(4, "big")
+    def set_fst_len(self, length:int):
+        self.__data[BootBin.FSTLEN_OFFSET:BootBin.FSTLEN_OFFSET+4] = length.to_bytes(4, "big")
+    def set_fst_max_len(self, length:int):
+        self.__data[BootBin.FSTMAXLEN_OFFSET:BootBin.FSTMAXLEN_OFFSET+4] = length.to_bytes(4, "big")
+    def set_user_position(self, user_position:int):
+        self.__data[0x434:0x438] = user_position.to_bytes(4, "big")
+    def set_user_length(self, user_length:int):
+        self.__data[0x438:0x43c] = user_length.to_bytes(4, "big")
 
 
 class Bi2Bin:
@@ -360,6 +377,7 @@ class Bi2Bin:
     def country_code(self):           return int.from_bytes(self.__data[24:28], "big")
     def total_disk(self):             return int.from_bytes(self.__data[28:32], "big")
     def long_file_name_support(self): return int.from_bytes(self.__data[32:36], "big")
+    def dol_limit(self):              return int.from_bytes(self.__data[40:44], "big")
     def set_debug_monitor_size(self, debug_monitor_size:int):
         self.__data[:4] = debug_monitor_size.to_bytes(4, "big")
     def set_simulated_memory_size(self, simulated_memory_size:int):
@@ -378,6 +396,8 @@ class Bi2Bin:
         self.__data[28:32] = total_disk.to_bytes(4, "big")
     def set_long_file_name_support(self, long_file_name_support:int):
         self.__data[32:36] = long_file_name_support.to_bytes(4, "big")
+    def set_dol_limit(self, dol_limit:int):
+        self.__data[40:44] = dol_limit.to_bytes(4, "big")
         
 
 class ApploaderImg:
@@ -431,7 +451,7 @@ class Gcm:
         config = ConfigParser(allow_no_value=True) # allow_no_value to allow adding comments
         config.optionxform = str # makes options case sensitive
         config.add_section("Default")
-        config.set("Default", "# Documentation available here: https://github.com/Virtual-World-RE/NeoGF/tree/main/gcmtool#system_conf")
+        config.set("Default", "# Documentation available here: https://github.com/Virtual-World-RE/NeoGF/blob/main/gcmtool/README.md#syssytemconf")
         config.set("Default", "boot.bin_section", "disabled")
         config.set("Default", "bi2.bin_section", "disabled")
         config.set("Default", "apploader.img_section", "disabled")
@@ -449,7 +469,10 @@ class Gcm:
         config.set("boot.bin", "FstOffset",        f"auto")
         config.set("boot.bin", "FstLen",           f"auto")
         config.set("boot.bin", "FstMaxLen",        f"auto")
+        config.set("boot.bin", "UserPosition",     f"auto")
+        config.set("boot.bin", "UserLength",       f"auto")
         
+
         config.add_section("bi2.bin")
         config.set("bi2.bin", "DebugMonitorSize",    f"0x{self.__bi2bin.debug_monitor_size():x}")
         config.set("bi2.bin", "SimulatedMemorySize", f"0x{self.__bi2bin.simulated_memory_size():x}")
@@ -460,6 +483,7 @@ class Gcm:
         config.set("bi2.bin", "CountryCode",         str(self.__bi2bin.country_code())) # 0, 1, 2, 4
         config.set("bi2.bin", "TotalDisk",           str(self.__bi2bin.total_disk())) # 1-99
         config.set("bi2.bin", "LongFileNameSupport", str(self.__bi2bin.long_file_name_support())) # 0, 1
+        config.set("bi2.bin", "DolLimit",            f"0x{self.__bi2bin.dol_limit():x}")
 
         config.add_section("apploader.img")
         config.set("apploader.img", "Version",     self.__apploaderimg.version())
@@ -469,7 +493,8 @@ class Gcm:
 
         with (sys_path / "system.conf").open("w") as conf_file:
             config.write(conf_file)
-    def __load_conf(self, sys_path:Path):
+        logging.info("sys/sytem.conf saved.")
+    def __load_conf(self, sys_path:Path, get_conf_values:bool = False):
         "Patch boot.bin, bi2.bin and apploader.img with the conf in sys/system.conf if Default section status is enabled."
         config = ConfigParser(allow_no_value=True) # allow_no_value to allow adding comments
         config.optionxform = str # makes options case sensitive
@@ -506,11 +531,14 @@ class Gcm:
             ("boot.bin", "FstOffset",          True),
             ("boot.bin", "FstLen",             True),
             ("boot.bin", "FstMaxLen",          True),
+            ("boot.bin", "UserPosition",       True),
+            ("boot.bin", "UserLength",         True),
             ("bi2.bin", "DebugMonitorSize",    False),
             ("bi2.bin", "SimulatedMemorySize", False),
             ("bi2.bin", "ArgumentOffset",      False),
             ("bi2.bin", "TrackLocation",       False),
             ("bi2.bin", "TrackSize",           False),
+            ("bi2.bin", "DolLimit",            False),
             ("apploader.img", "EntryPoint",    False),
             ("apploader.img", "Size",          False),
             ("apploader.img", "TrailerSize",   False)])
@@ -518,6 +546,13 @@ class Gcm:
         self.__bootbin.make_mut()
         self.__bi2bin.make_mut()
         self.__apploaderimg.make_mut()
+
+        conf_value_dol_offset = None
+        conf_value_fst_offset = None
+        conf_value_fst_len = 0
+        conf_value_fst_max_len = None
+        conf_value_user_position = None
+        conf_value_user_length = None
 
         if config["Default"]["boot.bin_section"].lower() == "enabled":
             if len(config["boot.bin"]["GameCode"]) != 4:
@@ -560,25 +595,43 @@ class Gcm:
                 if dol_offset > 0xffffffff:
                     raise InvalidConfValueError("Error - Invalid [boot.bin][DolOffset]: must be auto or unsigned hex value with length < 5 bytes.")
                 self.__bootbin.set_dol_offset( dol_offset )
+                conf_value_dol_offset = dol_offset
 
             if config["boot.bin"]["FstOffset"] != "auto":
                 fst_offset = int(config["boot.bin"]["FstOffset"], 16)
                 if fst_offset > 0xffffffff:
                     raise InvalidConfValueError("Error - Invalid [boot.bin][FstOffset]: must be auto or unsigned hex value with length < 5 bytes.")
                 self.__bootbin.set_fst_offset( fst_offset )
+                conf_value_fst_offset = fst_offset
 
             if config["boot.bin"]["FstLen"] != "auto":
                 fst_len = int(config["boot.bin"]["FstLen"], 16)
                 if fst_len > 0xffffffff:
                     raise InvalidConfValueError("Error - Invalid [boot.bin][FstLen]: must be auto or unsigned hex value with length < 5 bytes.")
                 self.__bootbin.set_fst_len( fst_len )
+                conf_value_fst_len = fst_len
 
             if config["boot.bin"]["FstMaxLen"] != "auto":
                 fst_max_len = int(config["boot.bin"]["FstMaxLen"], 16)
                 if fst_max_len > 0xffffffff:
                     raise InvalidConfValueError("Error - Invalid [boot.bin][FstMaxLen]: must be auto or unsigned hex value with length < 5 bytes.")
                 self.__bootbin.set_fst_max_len( fst_max_len )
+                conf_value_fst_max_len = fst_max_len
         
+            if config["boot.bin"]["UserPosition"] != "auto":
+                user_position = int(config["boot.bin"]["UserPosition"], 16)
+                if user_position > 0xffffffff:
+                    raise InvalidConfValueError("Error - Invalid [boot.bin][UserPosition]: must be auto or unsigned hex value with length < 5 bytes.")
+                self.__bootbin.set_user_position( user_position )
+                conf_value_user_position = user_position
+            
+            if config["boot.bin"]["UserLength"] != "auto":
+                user_length = int(config["boot.bin"]["UserLength"], 16)
+                if user_length > 0xffffffff:
+                    raise InvalidConfValueError("Error - Invalid [boot.bin][UserLength]: must be auto or unsigned hex value with length < 5 bytes.")
+                self.__bootbin.set_user_length( user_length )
+                conf_value_user_length = user_length
+
         if config["Default"]["bi2.bin_section"].lower() == "enabled":
             debug_monitor_size = int(config["bi2.bin"]["DebugMonitorSize"], 16)
             if debug_monitor_size > 0xffffffff or debug_monitor_size & 31:
@@ -622,6 +675,11 @@ class Gcm:
                 raise InvalidConfValueError("Error - Invalid [bi2.bin][LongFileNameSupport]: must be 0 or 1.")
             self.__bi2bin.set_long_file_name_support( int(config["bi2.bin"]["LongFileNameSupport"]) )
 
+            dol_limit = int(config["bi2.bin"]["DolLimit"], 16)
+            if dol_limit > 0xffffffff:
+                raise InvalidConfValueError("Error - Invalid [bi2.bin][DolLimit]: must be hex value with length < 5 bytes.")
+            self.__bi2bin.set_dol_limit( dol_limit )
+
         if config["Default"]["apploader.img_section"].lower() == "enabled":
             version = config["apploader.img"]["Version"]
             if len(version) > 10:
@@ -646,6 +704,18 @@ class Gcm:
         (sys_path / "boot.bin").write_bytes(self.__bootbin.data())
         (sys_path / "bi2.bin").write_bytes(self.__bi2bin.data())
         (sys_path / "apploader.img").write_bytes(self.__apploaderimg.data())
+
+        logging.info("sys/sytem.conf loaded.")
+
+        if get_conf_values:
+            return (
+                conf_value_dol_offset,
+                conf_value_fst_offset,
+                conf_value_fst_len,
+                conf_value_fst_max_len,
+                conf_value_user_position,
+                conf_value_user_length
+            )
     def __get_min_file_offset(self, fstbin_data:bytes):
         "Get the min file offset to check if there is an overflow."
         min_offset = None
@@ -752,7 +822,7 @@ class Gcm:
                     (currentdir_path / name).write_bytes( iso_file.read(filesize) )
 
                     logging.debug(f"{iso_path}(0x{fileoffset:x}:0x{fileoffset + filesize:x}) -> {currentdir_path / name}")
-    def pack(self, folder_path:Path, iso_path:Path = None, disable_ignore:bool = False):
+    def pack(self, folder_path:Path, iso_path:Path = None, disable_ignore:bool = False, skip_conf:bool = False):
         """
         Pack takes a folder unpacked by the pack command and pack it in a GCM/iso file.
         input: folder_path = Path
@@ -771,8 +841,11 @@ class Gcm:
                 self.__bi2bin = Bi2Bin((sys_path / "bi2.bin").read_bytes())
                 self.__apploaderimg = ApploaderImg((sys_path / "apploader.img").read_bytes())
 
-                # Patch boot.bin and bi2.bin if system.conf is enabled
-                self.__load_conf(sys_path)
+                # Patch boot.bin bi2.bin and apploader.img if system.conf is enabled
+                if not skip_conf:
+                    self.__load_conf(sys_path)
+                if self.__bootbin.fst_len() > self.__bootbin.fst_max_len():
+                    raise InvalidFSTSizeError(f"Error - fst.bin max length < fst.bin length in boot.bin offset 0x{BootBin.FSTMAXLEN_OFFSET:x}:0x{BootBin.FSTMAXLEN_OFFSET+4:x}.")
 
                 logging.debug(f"{sys_path / 'boot.bin'}      -> {iso_path}(0x0:0x{BootBin.LEN:x})")
                 iso_file.write(self.__bootbin.data())
@@ -787,7 +860,7 @@ class Gcm:
                 fstbin_len = self.__bootbin.fst_len()
                 fstbin_end_offset = fstbin_offset + fstbin_len
                 if (sys_path / "fst.bin").stat().st_size != fstbin_len:
-                    raise InvalidFSTSizeError(f"Error - Invalid fst.bin size in boot.bin offset 0x{BootBin.FSTLEN_OFFSET:x}:0x{BootBin.FSTLEN_OFFSET+4:x}.")
+                    raise InvalidFSTSizeError(f"Error - Invalid fst.bin length in boot.bin offset 0x{BootBin.FSTLEN_OFFSET:x}:0x{BootBin.FSTLEN_OFFSET+4:x}.")
                 logging.debug(f"{sys_path / 'fst.bin'}       -> {iso_path}(0x{fstbin_offset:x}:0x{fstbin_offset + fstbin_len:x})")
                 iso_file.seek( fstbin_offset )
                 fstbin_data = (sys_path / "fst.bin").read_bytes()
@@ -803,15 +876,15 @@ class Gcm:
                 if not disable_ignore:
                     if not Gcm.APPLOADER_OFFSET < dol_offset < dol_end_offset <= fstbin_offset and not \
                         fstbin_offset < dol_offset < dol_end_offset <= min_file_offset:
-                        raise DolSizeOverflowError("Error - The dol size has been increased and overflow on next file or on FST. To solve this check the sys/system.conf file if used or use --rebuild-fst.")
+                        raise DolSizeOverflowError("Error - The dol length has been increased and overflow on next file or on FST. To solve this check the sys/system.conf file if used or use --rebuild-fst.")
 
                 if not Gcm.APPLOADER_OFFSET < fstbin_offset < fstbin_end_offset <= dol_offset and not \
                     dol_end_offset <= fstbin_offset < fstbin_end_offset <= min_file_offset:
-                    raise FstSizeOverflowError("Error - The FST size has been increased and overflow on next file or on FST. To solve this check the sys/system.conf file if used or use --rebuild-fst.")
+                    raise FstSizeOverflowError("Error - The FST length has been increased and overflow on next file or on dol. To solve this check the sys/system.conf file if used or use --rebuild-fst.")
 
                 if Gcm.APPLOADER_OFFSET < dol_offset < apploader_end_offset or \
                     Gcm.APPLOADER_OFFSET < fstbin_offset < apploader_end_offset:
-                    raise ApploaderOverflowError("Error - The apploader size has been increased and overflow on dol or on FST. To solve this check the sys/system.conf file if used or use --rebuild-fst.")
+                    raise ApploaderOverflowError("Error - The apploader length has been increased and overflow on dol or on FST. To solve this check the sys/system.conf file if used or use --rebuild-fst.")
 
                 logging.debug(f"{sys_path / 'boot.dol'}      -> {iso_path}(0x{dol_offset:x}:0x{dol_end_offset:x})")
                 iso_file.seek( dol_offset )
@@ -862,7 +935,7 @@ class Gcm:
                         file_len   = int.from_bytes(fstbin_data[i+8:i+12], "big")
 
                         if (currentdir_path / name).stat().st_size != file_len:
-                            raise InvalidFSTFileSizeError(f"Error - Invalid file size: {currentdir_path / name} - use --rebuild-fst before packing files in the iso.")
+                            raise InvalidFSTFileSizeError(f"Error - Invalid file length: {currentdir_path / name} - use --rebuild-fst before packing files in the iso.")
                         logging.debug(f"{currentdir_path / name} -> {iso_path}(0x{file_offset:x}:0x{file_offset + file_len:x})")
                         iso_file.seek(file_offset)
                         iso_file.write( (currentdir_path / name).read_bytes() )
@@ -870,7 +943,7 @@ class Gcm:
             FSTDirNotFoundError, FSTFileNotFoundError, InvalidConfValueError, FstSizeOverflowError, ApploaderOverflowError):
             iso_path.unlink()
             raise
-    def rebuild_fst(self, folder_path:Path, align:int):
+    def rebuild_fst(self, folder_path:Path, align:int, skip_conf:bool):
         """
         Rebuild FST generate a new file system by using all files in the root folder
         it patch boot.bin caracteristics, apploader.img and also file system changes.
@@ -882,18 +955,37 @@ class Gcm:
         root_path = folder_path / "root"
         sys_path = folder_path / "sys"
 
-        dol_offset = align_top(Gcm.APPLOADER_OFFSET + (sys_path / "apploader.img").stat().st_size, align)
-        logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.DOLOFFSET_OFFSET:x} with new dol offset (0x{dol_offset:x})")
-        self.__bootbin = BootBin(bytearray((sys_path / "boot.bin").read_bytes()))
-        self.__bootbin.set_dol_offset(dol_offset)
-        
-        fstbin_offset = align_top(dol_offset + (sys_path / "boot.dol").stat().st_size, align)
-        logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.FSTOFFSET_OFFSET:x} with new FST offset (0x{fstbin_offset:x})")
-        self.__bootbin.set_fst_offset(fstbin_offset)
-        
-        fst_tree = FstTree(root_path, fstbin_offset, align=align)
+        self.__bootbin = BootBin((sys_path / "boot.bin").read_bytes())
+        self.__bi2bin = Bi2Bin((sys_path / "bi2.bin").read_bytes())
+        self.__apploaderimg = ApploaderImg((sys_path / "apploader.img").read_bytes())
 
-        # Sorting paths approach original fst sort, but in original fst specials chars are after and not before chars
+        (
+            dol_offset,
+            fst_offset,
+            fst_len,
+            fst_max_len,
+            user_position,
+            user_length
+        ) = self.__load_conf(sys_path, get_conf_values = True) if not skip_conf else (None, None, 0, None, None, None)
+
+        if dol_offset is None:
+            dol_offset = align_top(Gcm.APPLOADER_OFFSET + (sys_path / "apploader.img").stat().st_size, align)
+            logging.info(f"Patching sys/boot.bin offset 0x{BootBin.DOLOFFSET_OFFSET:x} with new dol offset (0x{dol_offset:x}).")
+            self.__bootbin.set_dol_offset(dol_offset)
+
+        dol_end_offset = align_top(dol_offset + (sys_path / "boot.dol").stat().st_size, align)
+        # Default = FST after dol
+        if fst_offset is None:
+            fst_offset = dol_end_offset
+            logging.info(f"Patching sys/boot.bin offset 0x{BootBin.FSTOFFSET_OFFSET:x} with new FST offset (0x{fst_offset:x}).")
+            self.__bootbin.set_fst_offset(fst_offset)
+        
+        fst_end_offset = fst_offset + fst_len
+        fst_tree = FstTree(root_path, max(dol_end_offset, fst_offset, fst_end_offset), \
+            is_fst_last = (dol_end_offset <= fst_offset and fst_len == 0), align=align)
+
+        # Sorting paths approach original fst sort, but in original fst specials chars are after and not before chars.
+        # Files / Folders are sometimes put in arbitrary order.
         path_list = sorted([path for path in root_path.glob('**/*')], key=lambda s:Path(str(s).upper()))
         for path in path_list:
             fst_tree.add_node_by_path(path)
@@ -901,14 +993,28 @@ class Gcm:
 
         fst_path = sys_path / "fst.bin"
 
-        logging.info(f"Writing fst in {Path('sys/fst.bin')}")
+        logging.info(f"Writing fst in sys/fst.bin")
         fst_path.write_bytes( fst_tree.generate_fst() )
 
-        fstbin_len = fst_path.stat().st_size
-        logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.FSTLEN_OFFSET:x} with new FST size (0x{fstbin_len:x})")
-        self.__bootbin.set_fst_len(fstbin_len)
-        logging.info(f"Patching {Path('sys/boot.bin')} offset 0x{BootBin.FSTMAXLEN_OFFSET:x} with new FST max size (0x{fstbin_len:x})")
-        self.__bootbin.set_fst_max_len(fstbin_len)
+        if fst_len == 0:
+            fst_len = fst_path.stat().st_size
+            logging.info(f"Patching sys/boot.bin offset 0x{BootBin.FSTLEN_OFFSET:x} with new FST size (0x{fst_len:x}).")
+            self.__bootbin.set_fst_len(fst_len)
+
+        if fst_max_len is None and fst_len > self.__bootbin.fst_max_len():
+            logging.info(f"Patching sys/boot.bin offset 0x{BootBin.FSTMAXLEN_OFFSET:x} with new FST max size (0x{fst_len:x}).")
+            self.__bootbin.set_fst_max_len(fst_len)
+
+        if user_position is None:
+            # Allow fixed fst_len or dol after FST fixed by conf
+            user_position = max(fst_tree.user_position(), fst_offset + fst_len, dol_end_offset)
+            logging.info(f"Patching sys/boot.bin offset 0x434 with new user position (0x{user_position:x}).")
+            self.__bootbin.set_user_position(user_position)
+        
+        if user_length is None:
+            user_length = fst_tree.user_length()
+            logging.info(f"Patching sys/boot.bin offset 0x438 with new user length (0x{user_length:x}).")
+            self.__bootbin.set_user_length(user_length)
 
         (sys_path / "boot.bin").write_bytes(self.__bootbin.data())
     def __get_sys_from_folder(self, folder_path:Path):
@@ -972,7 +1078,9 @@ class Gcm:
             f"DolOffset = 0x{self.__bootbin.dol_offset():x}\n" + \
             f"FstOffset = 0x{self.__bootbin.fst_offset():x}\n" + \
             f"FstLen = 0x{self.__bootbin.fst_len():x}\n" + \
-            f"FstMaxLen = 0x{self.__bootbin.fst_max_len():x}\n\n" + \
+            f"FstMaxLen = 0x{self.__bootbin.fst_max_len():x}\n" + \
+            f"UserPosition = 0x{self.__bootbin.user_position():x}\n" + \
+            f"UserLength = 0x{self.__bootbin.user_length():x}\n\n" + \
             "[bi2.bin]\n" + \
             f"DebugMonitorSize = 0x{self.__bi2bin.debug_monitor_size():x}\n" + \
             f"SimulatedMemorySize = 0x{self.__bi2bin.simulated_memory_size():x}\n" + \
@@ -982,7 +1090,8 @@ class Gcm:
             f"TrackSize = 0x{self.__bi2bin.track_size():x}\n" + \
             f"CountryCode = {self.__bi2bin.country_code()}\n" + \
             f"TotalDisk = {self.__bi2bin.total_disk()}\n" + \
-            f"LongFileNameSupport = {self.__bi2bin.long_file_name_support()}\n\n" + \
+            f"LongFileNameSupport = {self.__bi2bin.long_file_name_support()}\n" + \
+            f"DolLimit = 0x{self.__bi2bin.dol_limit():x}\n\n" + \
             "[apploader.img]\n" + \
             f"Version = {self.__apploaderimg.version()}\n" + \
             f"EntryPoint = 0x{self.__apploaderimg.entry_point():x}\n" + \
@@ -1066,12 +1175,12 @@ class Gcm:
         print(full_title + "\n".join([str(mem_obj) for mem_obj in mem_obj_list]))
 
 
-def pack(p_input:Path, p_output:Path, disable_ignore):
+def pack(p_input:Path, p_output:Path, disable_ignore:bool, skip_conf:bool = False):
     logging.info("### Pack in new GCM iso")
     if(p_output == Path(".")):
         p_output = Path(p_input.with_suffix(".iso"))
-    logging.info(f"packing folder \"{p_input}\" in \"{p_output}\"")
-    gcm.pack(p_input, p_output, disable_ignore)
+    logging.info(f"Packing folder \"{p_input}\" in \"{p_output}\"")
+    gcm.pack(p_input, p_output, disable_ignore, skip_conf)
 
 
 def unpack(p_input:Path, p_output:Path):
@@ -1079,12 +1188,12 @@ def unpack(p_input:Path, p_output:Path):
     gcm.unpack(p_input, p_output)
 
 
-def rebuild_fst(p_input:Path, align):
+def rebuild_fst(p_input:Path, align:int, skip_conf:bool = False):
     logging.info("### Rebuilding FST and patching boot.bin")
     if args.align < 1:
         raise BadAlignError("Error - Align must be > 0.")
     logging.info(f"Using alignment: {args.align}")
-    gcm.rebuild_fst(p_input, align)
+    gcm.rebuild_fst(p_input, align, skip_conf)
 
 
 def get_argparser():
@@ -1127,8 +1236,8 @@ if __name__ == '__main__':
     elif args.rebuild_fst:
         rebuild_fst(p_input, args.align)
     elif args.rebuild_fst_pack:
-        rebuild_fst(p_input, args.align)
-        pack(p_input, p_output, args.disable_ignore)
+        rebuild_fst(p_input, args.align) # rebuild fst parse and patch with conf
+        pack(p_input, p_output, args.disable_ignore, skip_conf = True)
     elif args.unpack_rebuild_fst:
-        unpack(p_input, p_output)
-        rebuild_fst(p_output, args.align)
+        unpack(p_input, p_output) # conf isn't enabled yet
+        rebuild_fst(p_output, args.align, skip_conf = True)
