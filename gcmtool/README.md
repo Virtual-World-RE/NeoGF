@@ -1,7 +1,9 @@
 # gcmtool.py
+
 Python3 script for unpack/pack/rebuild GCM/iso file format. This tool can rebuild FileStringTable (FST) of GCM and patch boot.bin with a new apploader.img, boot.dol, add/remove/edit folder and files of the game. MIT License.
 
 ## User manual
+
 Unpack GCM/iso file **source_gcm.iso** in the default new folder _game_code-DVD_number_. If optional_dest_folder is specified we unpack in _optional_dest_folder_.
 ```
 gcmtool.py --unpack source_gcm.iso optional_dest_folder
@@ -33,6 +35,7 @@ The original GCM/iso and repack GCM/iso are different most of the time. This is 
 The sorting of files during FST rebuild is deferent from the original and this is full compatible with the GameCube dol API.
 
 ## Extracted file tree
+
 root folder contains all files of the unpacked GCM/iso
 
 sys folder contains GCM system files of the game:
@@ -41,44 +44,51 @@ sys folder contains GCM system files of the game:
 * apploader.img
 * boot.dol
 * fst.bin
+* system.conf
 
 ## sys/sytem.conf
+
 The conf file system.conf allow to force somes values and patch sys/files and also new generated iso. The conf file is parsed and applied with --pack and --rebuild-fst.
+
 ### [Default]
-* boot.bin_section = disabled / enabled # If enabled then boot.bin section will be applied.
-* bi2.bin_section = disabled / enabled # If enabled then bi2.bin section will be applied.
-* apploader.img_section = disabled / enabled # If enabled then apploader.img section will be applied.
+
+* **boot.bin_section** = disabled / enabled # If enabled then boot.bin section will be applied.
+* **bi2.bin_section** = disabled / enabled # If enabled then bi2.bin section will be applied.
+* **apploader.img_section** = disabled / enabled # If enabled then apploader.img section will be applied.
 
 ### [boot.bin]
-* GameCode = GG4P # 4 bytes ascii value - A-Za-z0-9
-* MakerCode = 08 # 2 bytes ascii value - A-Za-z0-9
-* DiskNumber = 0 # Disk number information for multiple disks. The number starts from 0. 0-98
-* GameVersion = 0 # The version number of the video game. 0-99
-* AudioStreaming = 1 # The flag for the streaming mode. 1 for streaming mode, otherwise 0.
-* StreamBufferSize = 0 # Number of Streaming buffers. 0-15
-* DVDMagic = 0xc2339f3d
-* GameName = GotchaForceEur # The character string of the video game title (Kanji characters are available.). 64 bytes max.
-* DolOffset = auto # Hex value: 0xabcdef or auto: dol offset on the DVD.
-* FstOffset = auto # Hex value: 0xabcdef or auto: fst offset on the DVD
-* FstLen = auto # Hex value: 0xabcdef or auto: fst length
-* FstMaxLen = auto # Hex value: 0xabcdef or auto: the size of the area reserved for FST. Used when there is multiple FST to load (multiple DVD).
-* UserPosition = auto # Hex value: 0xabcdef or auto: start of files stored in the gcm.
-* UserLength = auto # Hex value: 0xabcdef or auto: length of files stored in the gcm.
+
+* **GameCode** = GG4P _# 4 bytes ascii value - A-Za-z0-9_
+* **MakerCode** = 08 _# 2 bytes ascii value - A-Za-z0-9_
+* **DiskNumber** = 0 _# Disk number information for multiple disks. The number starts from 0. 0-98_
+* **GameVersion** = 0 _# The version number of the video game. 0-99_
+* **AudioStreaming** = 1 _# The flag for the streaming mode. 1 for streaming mode, otherwise 0._
+* **StreamBufferSize** = 0 _# Number of Streaming buffers. 0-15_
+* **DVDMagic** = 0xc2339f3d
+* **GameName** = GotchaForceEur _# The character string of the video game title (Kanji characters are available.). 64 bytes max._
+* **DolOffset** = auto _# Hex value: 0xabcdef or auto: dol offset on the DVD._
+* **FstOffset** = auto _# Hex value: 0xabcdef or auto: fst offset on the DVD._
+* **FstLen** = auto _# Hex value: 0xabcdef or auto: fst length._
+* **FstMaxLen** = auto _# Hex value: 0xabcdef or auto: the size of the area reserved for FST. Used when there is multiple FST to load (multiple DVD)._
+* **UserPosition** = auto _# Hex value: 0xabcdef or auto: start of files stored in the gcm._
+* **UserLength** = auto _# Hex value: 0xabcdef or auto: length of files stored in the gcm._
 
 ### [bi2.bin]
-* DebugMonitorSize = 0x0 # Hex value: 0xabcdef aligned to 32 bytes.
-* SimulatedMemorySize = 0x1800000 # Hex value: 0xabcdef aligned to 32 bytes.
-* ArgumentOffset = 0x0 # Hex value: 0xabcdef
-* DebugFlag = 0 # Numeric value: 123. Set this to 0 when not using the any debugger on GDEV, set to 3 when using the CodeWarrior debugger on EV.
-* TrackLocation = 0x0 # Hex value: 0xabcdef
-* TrackSize = 0x0 # Hex value: 0xabcdef
-* CountryCode = 2 # Numeric value: 123 - Japan=0, USA=1, PAL=2, SouthKorea=4
-* TotalDisk = 1 # Numeric value: 1-99
-* LongFileNameSupport = 1 # Numeric value. Set to 1 for long file name support; set to 0 to restrict file to 8.3 format.
-* DolLimit = 0x0 # Hex value: 0xabcdef
+
+* **DebugMonitorSize** = 0x0 _# Hex value: 0xabcdef aligned to 32 bytes._
+* **SimulatedMemorySize** = 0x1800000 _# Hex value: 0xabcdef aligned to 32 bytes._
+* **ArgumentOffset** = 0x0 _# Hex value: 0xabcdef_
+* **DebugFlag** = 0 _# Numeric value: 123. Set this to 0 when not using the any debugger on GDEV, set to 3 when using the CodeWarrior debugger on EV._
+* **TrackLocation** = 0x0 _# Hex value: 0xabcdef_
+* **TrackSize** = 0x0 _# Hex value: 0xabcdef_
+* **CountryCode** = 2 _# Numeric value: 123 - Japan=0, USA=1, PAL=2, SouthKorea=4_
+* **TotalDisk** = 1 _# Numeric value: 1-99_
+* **LongFileNameSupport** = 1 _# Numeric value. Set to 1 for long file name support; set to 0 to restrict file to 8.3 format._
+* **DolLimit** = 0x0 _# Hex value: 0xabcdef_
 
 ### [apploader.img]
-* Version = 2003/04/17
-* EntryPoint = 0x81200258 # Hex value: 0xabcdef
-* Size = 0x1954 # Hex value: 0xabcdef
-* TrailerSize = 0x1b8b0 # Hex value: 0xabcdef
+
+* **Version** = 2003/04/17 _# 16 bytes ascii_
+* **EntryPoint** = 0x81200258 _# Hex value: 0xabcdef_
+* **Size** = 0x1954 _# Hex value: 0xabcdef_
+* **TrailerSize** = 0x1b8b0 _# Hex value: 0xabcdef_
