@@ -42,7 +42,7 @@ sys folder contains GCM system files of the game:
 * boot.dol
 * fst.bin
 
-## sys/sytem.com
+## sys/sytem.conf
 The conf file system.conf allow to force somes values and patch sys/files and also new generated iso. The conf file is parsed and applied with --pack and --rebuild-fst.
 ### [Default]
 * boot.bin_section = disabled / enabled # If enabled then boot.bin section will be applied.
