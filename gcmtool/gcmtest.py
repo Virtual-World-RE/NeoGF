@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from configparser import ConfigParser
-from gcmtool import Gcm
+from gcmtool import Gcm, align_top
 from gcmtool import InvalidDVDMagicError, InvalidUnpackFolderError, InvalidPackIsoError, \
     InvalidFSTSizeError, DolSizeOverflowError, InvalidRootFileFolderCountError, \
     InvalidFSTFileSizeError, FSTDirNotFoundError, FSTFileNotFoundError, BadAlignError, \
@@ -11,7 +11,7 @@ import shutil
 from time import time
 
 
-__version__ = "0.0.10"
+__version__ = "0.2.0"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -119,6 +119,7 @@ def gcmtool_stats(path:Path):
 
 
 TEST_COUNT = 7
+
 
 start = time()
 print("###############################################################################")
@@ -418,10 +419,11 @@ for iso_path in roms_path.glob("*"):
         gcmtool_unpack(iso_path, first_unpacked)
 
         delete_files = False
-        for path in (first_unpacked / "root").glob("*/**"):
-            if path.is_file:
-                delete_files = True
-            if delete_files and path.is_file():
+        for path in (first_unpacked / "root").glob("**/*"):
+            if path.is_file():
+                if not delete_files:
+                    delete_files = True
+                    continue
                 path.unlink()
         gcmtool_rebuild_fst(first_unpacked)
         break
@@ -505,6 +507,10 @@ bootbin_expected_data[0x428:0x42c] = (fst_len + 0x200).to_bytes(4, "big")
 test_config_pack("boot.bin", "FstLen", f"0x{fst_len + 0x200:x}")
 bootbin_expected_data[0x42c:0x430] = b"\xab\xcd\xef\x12"
 test_config_pack("boot.bin", "FstMaxLen", "0xabcdef12")
+bootbin_expected_data[0x434:0x438] = b"\x98\x76\x54\x32"
+test_config_pack("boot.bin", "UserPosition", "0x98765432")
+bootbin_expected_data[0x438:0x43c] = b"\xab\xcd\xef\x12"
+test_config_pack("boot.bin", "UserLength", "0xabcdef12")
 
 bi2bin_expected_data[:4] = b"\x12\x13\x14\x20"
 test_config_pack("bi2.bin", "DebugMonitorSize", "0x12131420")
@@ -526,6 +532,8 @@ bi2bin_expected_data[0x20:0x24] = b"\x00\x00\x00\x01"
 test_config_pack("bi2.bin", "LongFileNameSupport", "1")
 bi2bin_expected_data[0x20:0x24] = b"\x00\x00\x00\x00"
 test_config_pack("bi2.bin", "LongFileNameSupport", "0")
+bi2bin_expected_data[0x28:0x2c] = b"\x92\x87\x45\x56"
+test_config_pack("bi2.bin", "DolLimit", "0x92874556")
 
 apploaderimg_expected_data[:10] = b"dfghisdfgq"
 test_config_pack("apploader.img", "Version", "dfghisdfgq")
@@ -584,6 +592,10 @@ test_conf_pack_except("boot.bin", "FstLen", "231")
 test_conf_pack_except("boot.bin", "FstLen", "0x180000000")
 test_conf_pack_except("boot.bin", "FstMaxLen", "231")
 test_conf_pack_except("boot.bin", "FstMaxLen", "0x180000000")
+test_conf_pack_except("boot.bin", "UserPosition", "231")
+test_conf_pack_except("boot.bin", "UserPosition", "0x180000000")
+test_conf_pack_except("boot.bin", "UserLength", "231")
+test_conf_pack_except("boot.bin", "UserLength", "0x180000000")
 
 test_conf_pack_except("bi2.bin", "DebugMonitorSize", "231")
 test_conf_pack_except("bi2.bin", "DebugMonitorSize", "0x80000001")
@@ -604,6 +616,8 @@ test_conf_pack_except("bi2.bin", "CountryCode", "5")
 test_conf_pack_except("bi2.bin", "TotalDisk", "100")
 test_conf_pack_except("bi2.bin", "TotalDisk", "0x5")
 test_conf_pack_except("bi2.bin", "LongFileNameSupport", "3")
+test_conf_pack_except("bi2.bin", "DolLimit", "231")
+test_conf_pack_except("bi2.bin", "DolLimit", "0x180000000")
 
 test_conf_pack_except("apploader.img", "Version", "a" * 11)
 test_conf_pack_except("apploader.img", "EntryPoint", "231")
@@ -669,6 +683,154 @@ with (first_unpacked / "sys/apploader.img").open("rb+") as apploaderimg_file:
     apploaderimg_file.truncate()
 gcm.pack(first_unpacked, repack_path / "ok2.iso")
 print("Correct apploader patch with max size before fst.")
+
+fst_length = None
+with (first_unpacked / "sys/boot.bin").open("rb+") as bootbin_file:
+    bootbin_file.seek(0x428)
+    fst_length = int.from_bytes(bootbin_file.read(4), "big")
+    bootbin_file.write((fst_length - 1).to_bytes(4, "big")) # fst max len
+
+gcmtool_rebuild_fst(first_unpacked)
+
+with (first_unpacked / "sys/boot.bin").open("rb+") as bootbin_file:
+    bootbin_file.seek(0x42c)
+    if int.from_bytes(bootbin_file.read(4), "big") != fst_length:
+        raise Exception("Error - fst_max_length should have been patched with new fst_length.")
+    print("Correct max fst length patched with new fst length.")
+
+    bootbin_file.seek(0x42c)
+    bootbin_file.write((fst_length + 1).to_bytes(4, "big")) # fst max len
+
+gcmtool_rebuild_fst(first_unpacked)
+
+dvd_user_length = None
+with (first_unpacked / "sys/boot.bin").open("rb") as bootbin_file:
+    bootbin_file.seek(0x424) # fst offset
+    fst_offset = int.from_bytes(bootbin_file.read(4), "big")
+    bootbin_file.seek(0x42c)
+    if int.from_bytes(bootbin_file.read(4), "big") != fst_length + 1:
+        raise Exception("Error - fst_max_length shouldn't have been patched with new fst_length.")
+    print("Correct unpatched max fst length.")
+
+    # By default dol_offset < fst_offset when rebuilding FST
+    # So fst_end_offset rounded up == user_position
+    # iso_end - user_position = user_length rounded 4 bytes up
+    bootbin_file.seek(0x434) # user position
+    if int.from_bytes(bootbin_file.read(4), "big") != align_top(fst_offset + fst_length, 4):
+        raise Exception("Error - user_position should be aligned after the end of the FST.")
+    print("Correct user_position.")
+    dvd_user_length = int.from_bytes(bootbin_file.read(4), "big") # user length
+
+user_length = 0
+for path in (first_unpacked / "root").glob("**/*"):
+    if path.is_file():
+        user_length += align_top(path.stat().st_size, 4)
+
+if user_length != dvd_user_length:
+    raise Exception(f"Error - Invalid user_length {user_length:x}, {dvd_user_length:x}.")
+
+# Testing conf setup with FST & dol offsets/length
+config = ConfigParser(allow_no_value=True) # allow_no_value to allow adding comments
+config.optionxform = str # makes options case sensitive
+config.read(first_unpacked / "sys/system.conf")
+config["Default"]["boot.bin_section"] = "enabled"
+config["Default"]["bi2.bin_section"] = "enabled"
+config["Default"]["apploader.img_section"] = "enabled"
+original_bootbin_data = bytearray( (first_unpacked / "sys/boot.bin").read_bytes() )
+
+# dol_offset = 0x2 00 00
+config["boot.bin"]["DolOffset"] = "0x20000"
+original_bootbin_data[0x420:0x424] = b"\x00\x02\x00\x00"
+# fst_offset = 0x2 00 00 00
+config["boot.bin"]["FstOffset"] = "0x2000000"
+original_bootbin_data[0x424:0x428] = b"\x02\x00\x00\x00"
+# fst_len = 0x10 00 00
+config["boot.bin"]["FstLen"] = "0x100000"
+original_bootbin_data[0x428:0x42c] = b"\x00\x10\x00\x00"
+# fst_max_len = 0x10 00 00
+original_bootbin_data[0x42c:0x430] = b"\x00\x10\x00\x00"
+# user_position = 0x2 10 00 00
+original_bootbin_data[0x434:0x438] = b"\x02\x10\x00\x00"
+# user_length = inchanged
+
+with (first_unpacked / "sys/system.conf").open("w") as conf_file:
+    config.write(conf_file)
+
+gcmtool_rebuild_fst(first_unpacked)
+
+if (first_unpacked / "sys/boot.bin").read_bytes() != original_bootbin_data:
+    raise Exception("Error - Invalid patched boot.bin.")
+
+with (first_unpacked / "sys/fst.bin").open("rb+") as fstbin_file:
+    fstbin_file.seek(0xfffff)
+    fstbin_file.write(b"\x00")
+
+gcmtool_pack(first_unpacked, repack_path / "ok5.iso")
+
+with (repack_path / "ok5.iso").open("rb") as repack_file:
+    if original_bootbin_data != repack_file.read(0x440):
+        raise Exception("Error - Invalid repacked iso.")
+
+    dol_data = (first_unpacked / "sys/boot.dol").read_bytes()
+    repack_file.seek(0x20000)
+    if dol_data != repack_file.read(len(dol_data)):
+        raise Exception("Error - Invalid repacked iso.")
+
+    fst_data = (first_unpacked / "sys/fst.bin").read_bytes()
+    repack_file.seek(0x2000000)
+    if fst_data != repack_file.read(len(fst_data)):
+        raise Exception("Error - Invalid repacked iso.")
+print("Correct constrained FST after dol with fixed length.")
+
+# user_length = inchanged
+
+# dol_offset = 0x12 00 00
+config["boot.bin"]["DolOffset"] = "0x120000"
+original_bootbin_data[0x420:0x424] = b"\x00\x12\x00\x00"
+# fst_offset = 0x2 00 00
+config["boot.bin"]["FstOffset"] = "0x20000"
+original_bootbin_data[0x424:0x428] = b"\x00\x02\x00\x00"
+# fst_len = 0x10 00 00
+config["boot.bin"]["FstLen"] = "0x100000"
+original_bootbin_data[0x428:0x42c] = b"\x00\x10\x00\x00"
+# fst_max_len = 0x10 00 00
+original_bootbin_data[0x42c:0x430] = b"\x00\x10\x00\x00"
+# user_position = 0x2 12 00 00
+original_bootbin_data[0x434:0x438] = b"\x02\x12\x00\x00"
+# user_length = inchanged
+# dol_len =  0x2 00 00 00
+with (first_unpacked / "sys/boot.dol").open("rb+") as bootdol_file:
+    bootdol_file.seek(0x2000000)
+    bootdol_file.truncate()
+
+with (first_unpacked / "sys/system.conf").open("w") as conf_file:
+    config.write(conf_file)
+
+gcmtool_rebuild_fst(first_unpacked)
+
+if (first_unpacked / "sys/boot.bin").read_bytes() != original_bootbin_data:
+    raise Exception("Error - Invalid patched boot.bin.")
+
+with (first_unpacked / "sys/fst.bin").open("rb+") as fstbin_file:
+    fstbin_file.seek(0xfffff)
+    fstbin_file.write(b"\x00")
+
+gcmtool_pack(first_unpacked, repack_path / "ok6.iso")
+
+with (repack_path / "ok6.iso").open("rb") as repack_file:
+    if original_bootbin_data != repack_file.read(0x440):
+        raise Exception("Error - Invalid repacked iso.")
+
+    dol_data = (first_unpacked / "sys/boot.dol").read_bytes()
+    repack_file.seek(0x120000)
+    if dol_data != repack_file.read(len(dol_data)):
+        raise Exception("Error - Invalid repacked iso.")
+
+    fst_data = (first_unpacked / "sys/fst.bin").read_bytes()
+    repack_file.seek(0x20000)
+    if fst_data != repack_file.read(len(fst_data)):
+        raise Exception("Error - Invalid repacked iso.")
+print("Correct constrained dol after FST with fixed length.")
 
 print("###############################################################################")
 print(f"# Cleaning test folders.")
