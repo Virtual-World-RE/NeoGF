@@ -9,7 +9,7 @@ from time import time
 from datetime import datetime
 
 
-__version__ = "0.0.7"
+__version__ = "0.2.0"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -20,7 +20,7 @@ __status__ = "developpement"
 # Set afspacker_path with the path of AFSPacker.exe
 ##################################################
 afss_path = Path("afs")
-afspacker_path = Path("../_autres/_soft/AFSPacker.exe")
+afspacker_path = Path("../tools/AFSPacker.exe")
 
 afspacker_unpack_path = Path("afspacker_unpack")
 # Created tmp paths
@@ -35,10 +35,12 @@ def test_storage():
         raise Exception("Error - Not enought free space on the disk to run tests.")
 
 
-# Need to know offsets of TOC to get the max length of files
-# and unpacked names of files when duplicated
 class AfsTest(afstool.Afs):
-    # return a list of tuples with (offset, resolved filename)
+    """
+    Need to know offsets of TOC to get the max length of files
+    and unpacked names of files when duplicated
+    return a list of tuples with (offset, resolved filename)
+    """
     def get_range(self, folder_path:Path):
         sys_path = folder_path / "sys"
         self._Afs__loadsys_from_folder(sys_path)
@@ -69,8 +71,8 @@ def print_paths_differences(folder1_paths:list, folder2_paths:list):
         print(path)
 
 
-# compare two files
 def compare_files(file1_path:Path, file2_path:Path):
+    "compare two files"
     CLUSTER_LEN = 131072
     with file1_path.open("rb") as file1, file2_path.open("rb") as file2:
         # Init
@@ -84,10 +86,12 @@ def compare_files(file1_path:Path, file2_path:Path):
     return True
 
 
-# compare two folder
-#     -> raise an exception if there is a difference in paths or in file content
 def compare_folders(folder1: Path, folder2: Path, compare_mtime:bool = False):
-    folder1_tmp_paths = list(folder1.glob("*"))
+    """
+    compare two folder
+        -> raise an exception if there is a difference in paths or in file content
+    """
+    folder1_tmp_paths = list(folder1.glob("**/*"))
     folder1_file_count = len(folder1_tmp_paths)
     print(f"compare \"{folder1}\" - \"{folder2}\" ({folder1_file_count} files)")
     if folder1_file_count == 0:
@@ -97,26 +101,29 @@ def compare_folders(folder1: Path, folder2: Path, compare_mtime:bool = False):
     len2 = len(folder2.parts)
     # 1. Compare names in filesystems
     folder1_paths = [Path(*path.parts[len1:]) for path in folder1_tmp_paths]
-    folder2_paths = [Path(*path.parts[len2:]) for path in folder2.glob("*")]
+    folder2_paths = [Path(*path.parts[len2:]) for path in folder2.glob("**/*")]
     if folder1_paths != folder2_paths:
         print_paths_differences(folder1_paths, folder2_paths)
         raise Exception(f"Error - Folders \"{folder1}\" and \"{folder2}\" are different (not the same folders or files names).")
     # 2. Compare files content
     for path1 in folder1_tmp_paths:
-        path2 = folder2 / Path(*path1.parts[len1:])
-        if compare_mtime:
-            if round(path1.stat().st_mtime) != round(path2.stat().st_mtime):
-                raise Exception(f"Error - \"{path1}\" and \"{path2}\" mtime (update time) are different:\n    {round(path1.stat().st_mtime)}-{round(path2.stat().st_mtime)}")
-        if not compare_files(path1, path2):
-            raise Exception(f"Error - \"{path1}\" and \"{path2}\" are different.")
+        if path1.is_file():
+            path2 = folder2 / Path(*path1.parts[len1:])
+            if compare_mtime:
+                if round(path1.stat().st_mtime) != round(path2.stat().st_mtime):
+                    raise Exception(f"Error - \"{path1}\" and \"{path2}\" mtime (update time) are different:\n    {round(path1.stat().st_mtime)}-{round(path2.stat().st_mtime)}")
+            if not compare_files(path1, path2):
+                raise Exception(f"Error - \"{path1}\" and \"{path2}\" are different.")
 
 
-# compare two AFS
-#     -> raise an exception if there is a difference in:
-#            -paths
-#            -files content
-#            -mtime if there is a filename directory
 def compare_unpacked_AFS(folder1: Path, folder2: Path):
+    """
+    compare two AFS
+        -> raise an exception if there is a difference in:
+               -paths
+               -files content
+               -mtime if there is a filename directory
+    """
     compare_mtime = False
     if (folder1 / "sys" / "filenamedirectory.bin").is_file():
         compare_mtime = True
@@ -136,30 +143,33 @@ def patch_all_bytes(file_path:Path, max_len:int = None):
     file_path.write_bytes(file_data)
 
 
-# if not bool_len: patch all files with max len
-# if bool_len: patch first file found with max len + 1
 def patch_unpackedfiles_in_folder(folder_path:Path, bool_len:bool = False):
+    """
+    if not bool_len: patch all files with max len
+    if bool_len: patch first file found with max len + 1
+    """
     for afsfolder_path in folder_path.glob("*"):
         print(f"Patching {afsfolder_path}...")
         afs_test = AfsTest()
         offsets_names_map = afs_test.get_range(afsfolder_path)
 
-        for file_path in afsfolder_path.glob("root/*"):
-            max_len = None
-            # Search by resolved name and get begin offset of next file / SYS File
-            for i in range(len(offsets_names_map)):
-                if offsets_names_map[i][1] == file_path.name:
-                    if i+1 < len(offsets_names_map):
-                        max_len = offsets_names_map[i+1][0] - offsets_names_map[i][0]
-                        if bool_len:
-                            max_len += 1
-                    # else there is no limit because last file
-                    else:
-                        max_len = file_path.stat().st_size + afstool.Afs.ALIGN
+        for path in afsfolder_path.glob("root/**/*"):
+            if path.is_file():
+                max_len = None
+                # None by resolved name and get begin offset of next file / SYS File
+                for i in range(len(offsets_names_map)):
+                    if Path(offsets_names_map[i][1]) == path.relative_to(afsfolder_path / "root"):
+                        if i+1 < len(offsets_names_map):
+                            max_len = offsets_names_map[i+1][0] - offsets_names_map[i][0]
+                            if bool_len:
+                                max_len += 1
+                        # else there is no limit because last file
+                        else:
+                            max_len = path.stat().st_size + afstool.Afs.ALIGN
+                        break
+                patch_all_bytes(path, max_len)
+                if bool_len:
                     break
-            patch_all_bytes(file_path, max_len)
-            if bool_len:
-                break
 
 
 def repack_unpack2_compare():
@@ -184,9 +194,11 @@ def repack_unpack2_compare():
     shutil.rmtree(unpack2_path)
 
 
-# generate an unpacked AFS filesys for testing
-# files are filled with 0xff
 def mk_rebuild_filesys(unpacked_path:Path, files:list, afs_rebuild_conf:dict, afs_rebuild_csv:str = ""):
+    """
+    generate an unpacked AFS filesys for testing
+    files are filled with 0xff
+    """
     sys_path = unpacked_path / "sys"
     root_path = unpacked_path / "root"
     sys_path.mkdir(parents=True)
@@ -273,6 +285,7 @@ def afstool_rebuild(folder_path:Path):
 
 TEST_COUNT = 10
 
+
 start = time()
 print("###############################################################################")
 print("# Checking tests folder")
@@ -336,8 +349,9 @@ print("#########################################################################
 # Patch unpack files whithout changing their len
 for folder_path in unpack_path.glob("*"):
     print(f"Patching {folder_path}...")
-    for file_path in folder_path.glob("root/*"):
-        patch_all_bytes(file_path)
+    for path in folder_path.glob("root/**/*"):
+        if path.is_file():
+            patch_all_bytes(path)
 
 repack_unpack2_compare()
 
@@ -349,14 +363,12 @@ print("#########################################################################
 patch_unpackedfiles_in_folder(unpack_path)
 
 repack_unpack2_compare()
-
 print("###############################################################################")
 print(f"# TEST 6/{TEST_COUNT}")
 print("# Testing exception unpack_path->patch(max_size+1)->[pack]->repack_path.")
 print("###############################################################################")
 # Patch unpack files with 1 byte in a new used block in the first file
 patch_unpackedfiles_in_folder(unpack_path, True)
-
 repack_path.mkdir()
 
 # repack unpack_path repack_path
@@ -377,8 +389,9 @@ print("#########################################################################
 # Patch unpack files with 1 block less
 for folder_path in unpack_path.glob("*"):
     print(f"Patching {folder_path}...")
-    for file_path in folder_path.glob("root/*"):
-        patch_all_bytes(file_path, file_path.stat().st_size - afstool.Afs.ALIGN)
+    for file_path in folder_path.glob("root/**/*"):
+        if file_path.is_file():
+            patch_all_bytes(file_path, file_path.stat().st_size - afstool.Afs.ALIGN)
 
 repack_unpack2_compare()
 shutil.rmtree(unpack_path)
@@ -401,7 +414,7 @@ for folder_path in unpack_path.glob("*"):
 config = ConfigParser()
 # pack unpack_path repack_path
 for folder_path in unpack_path.glob("*"):
-    config.read(folder_path / "sys" / "afs_rebuild.conf")
+    config.read(folder_path / "sys/afs_rebuild.conf")
     if config["Default"]["filename_directory"] == "True":
         if config["FilenameDirectory"]["fd_last_attribute_type"] == "unknown":
             continue
@@ -447,7 +460,7 @@ afs_rebuild_conf2 = {
 i = -1
 
 afs_rebuild_conf1["Default"]["filename_directory"] = "abcd"
-test_except(afs_rebuild_conf1, afstool.AfsFilenameDirectoryValueError, "b.bin/0x1/0x1000/b.bin")
+test_except(afs_rebuild_conf1, afstool.AfsFilenameDirectoryValueError, "b.bin?0x1?0x1000?b.bin")
 afs_rebuild_conf1["Default"]["filename_directory"] = "False"
 
 for afs_rebuild_conf in [afs_rebuild_conf1, afs_rebuild_conf2]:
@@ -459,26 +472,26 @@ for afs_rebuild_conf in [afs_rebuild_conf1, afs_rebuild_conf2]:
     test_except(afs_rebuild_conf, afstool.AfsInvalidFilesRebuildStrategy)
     afs_rebuild_conf["Default"]["files_rebuild_strategy"] = "auto"
 
-    test_except(afs_rebuild_conf, afstool.AfsInvalidFilePathError, "d.bin/0x1/0x1000/d.bin")
-    test_except(afs_rebuild_conf, afstool.AfsInvalidFieldsCountError, "b.bin/0x1/0x1000/b.bin/d")
+    test_except(afs_rebuild_conf, afstool.AfsInvalidFilePathError, "d.bin?0x1?0x1000?d.bin")
+    test_except(afs_rebuild_conf, afstool.AfsInvalidFieldsCountError, "b.bin?0x1?0x1000?b.bin?d")
     for tmp_conf in ["index", "mixed"]:
         afs_rebuild_conf["Default"]["files_rebuild_strategy"] = tmp_conf
-        test_except(afs_rebuild_conf, afstool.AfsIndexValueError, "b.bin/123/0x1000/b.bin")
-        test_except(afs_rebuild_conf, afstool.AfsIndexOverflowError, "b.bin/0x3/0x1000/b.bin")
-        test_except(afs_rebuild_conf, afstool.AfsIndexCollisionError, "b.bin/0x1/0x1000/b.bin\nc.bin/0x1/0x2000/c.bin")
+        test_except(afs_rebuild_conf, afstool.AfsIndexValueError, "b.bin?123?0x1000?b.bin")
+        test_except(afs_rebuild_conf, afstool.AfsIndexOverflowError, "b.bin?0x3?0x1000?b.bin")
+        test_except(afs_rebuild_conf, afstool.AfsIndexCollisionError, "b.bin?0x1?0x1000?b.bin\nc.bin?0x1?0x2000?c.bin")
 
     for tmp_conf in ["offset", "mixed"]:
         afs_rebuild_conf["Default"]["files_rebuild_strategy"] = tmp_conf
-        test_except(afs_rebuild_conf, afstool.AfsOffsetValueError, "b.bin/0x1/123/b.bin")
-        test_except(afs_rebuild_conf, afstool.AfsOffsetAlignError, "b.bin/0x1/0x555/b.bin")
-        test_except(afs_rebuild_conf, afstool.AfsOffsetCollisionError, "b.bin/0x1/0x8000/b.bin\nc.bin/0x2/0x8000/c.bin")
+        test_except(afs_rebuild_conf, afstool.AfsOffsetValueError, "b.bin?0x1?123?b.bin")
+        test_except(afs_rebuild_conf, afstool.AfsOffsetAlignError, "b.bin?0x1?0x555?b.bin")
+        test_except(afs_rebuild_conf, afstool.AfsOffsetCollisionError, "b.bin?0x1?0x8000?b.bin\nc.bin?0x2?0x8000?c.bin")
 
     for tmp_conf in ["auto", "index", "offset", "mixed"]:
         afs_rebuild_conf["Default"]["files_rebuild_strategy"] = tmp_conf
-        test_except(afs_rebuild_conf, afstool.AfsEmptyBlockValueError, "123/0x800")
-        test_except(afs_rebuild_conf, afstool.AfsEmptyBlockValueError, "0x800/123")
-        test_except(afs_rebuild_conf, afstool.AfsEmptyBlockAlignError, "0x800/0x7ff")
-        test_except(afs_rebuild_conf, afstool.AfsEmptyBlockAlignError, "0x7ff/0x800")
+        test_except(afs_rebuild_conf, afstool.AfsEmptyBlockValueError, "123?0x800")
+        test_except(afs_rebuild_conf, afstool.AfsEmptyBlockValueError, "0x800?123")
+        test_except(afs_rebuild_conf, afstool.AfsEmptyBlockAlignError, "0x800?0x7ff")
+        test_except(afs_rebuild_conf, afstool.AfsEmptyBlockAlignError, "0x7ff?0x800")
 
 afs_rebuild_conf1["Default"]["files_rebuild_strategy"] = "auto"
 afs_rebuild_conf2["Default"]["files_rebuild_strategy"] = "auto"
@@ -497,7 +510,7 @@ test_except(afs_rebuild_conf, afstool.AfsFdLastAttributeTypeValueError)
 afs_rebuild_conf["FilenameDirectory"]["fd_last_attribute_type"] = "unknown"
 
 afs_rebuild_conf["FilenameDirectory"]["fd_offset"] = "0x1000"
-test_except(afs_rebuild_conf, afstool.AfsFdOffsetCollisionError, "a.bin/auto/0x1000/a.bin")
+test_except(afs_rebuild_conf, afstool.AfsFdOffsetCollisionError, "a.bin?auto?0x1000?a.bin")
 afs_rebuild_conf["FilenameDirectory"]["fd_offset"] = "auto"
 
 print("###############################################################################")
@@ -584,21 +597,21 @@ for afs_rebuild_conf in [afs_rebuild_conf1, afs_rebuild_conf2, afs_rebuild_conf3
 
     for tmp_conf in ["index", "mixed"]:
         afs_rebuild_conf["Default"]["files_rebuild_strategy"] = tmp_conf
-        test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x500),("b.bin", 0x600),("c.bin", 0x700)], raw_data[2], "b.bin/0x0/auto/b.bin", raw_fd_data=raw_fd_data[2])
+        test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x500),("b.bin", 0x600),("c.bin", 0x700)], raw_data[2], "b.bin?0x0?auto?b.bin", raw_fd_data=raw_fd_data[2])
     for tmp_conf in ["offset", "mixed"]:
         afs_rebuild_conf["Default"]["files_rebuild_strategy"] = tmp_conf # sort files by offset
-        test_rebuild_repack(afs_rebuild_conf, [("a.bin",  0x500),("b.bin",  0x600),("c.bin", 0x700)], raw_data[3], "b.bin/auto/0x8000/b.bin", raw_fd_data=raw_fd_data[3])
-        test_rebuild_repack(afs_rebuild_conf, [("a.bin",  0x900),("b.bin",  0x600),("c.bin", 0x700)], raw_data[4], "b.bin/auto/0x1000/b.bin", raw_fd_data=raw_fd_data[4])
-        test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x2901),("b.bin", 0x1902),("c.bin", 0x903),("d.bin", 0x904)], raw_data[5], "a.bin/auto/auto/a.bin\nb.bin/auto/0x2800/b.bin\nc.bin/auto/auto/c.bin\nd.bin/auto/auto/d.bin", raw_fd_data=raw_fd_data[5])
+        test_rebuild_repack(afs_rebuild_conf, [("a.bin",  0x500),("b.bin",  0x600),("c.bin", 0x700)], raw_data[3], "b.bin?auto?0x8000?b.bin", raw_fd_data=raw_fd_data[3])
+        test_rebuild_repack(afs_rebuild_conf, [("a.bin",  0x900),("b.bin",  0x600),("c.bin", 0x700)], raw_data[4], "b.bin?auto?0x1000?b.bin", raw_fd_data=raw_fd_data[4])
+        test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x2901),("b.bin", 0x1902),("c.bin", 0x903),("d.bin", 0x904)], raw_data[5], "a.bin?auto?auto?a.bin\nb.bin?auto?0x2800?b.bin\nc.bin?auto?auto?c.bin\nd.bin?auto?auto?d.bin", raw_fd_data=raw_fd_data[5])
 
     afs_rebuild_conf["Default"]["files_rebuild_strategy"] = "mixed"
-    test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x500),("b.bin",  0x600),("c.bin", 0x700)], raw_data[6], "b.bin/0x0/0x8000/b.bin", raw_fd_data=raw_fd_data[6])
-    test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x902),("b.bin", 0x1901),("c.bin", 0x700)], raw_data[7], "c.bin/0x0/0x3800/c.bin\nb.bin/0x1/auto/b.bin\na.bin/0x2/auto/a.bin", raw_fd_data=raw_fd_data[7])
-    test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x702),("b.bin",  0x601),("c.bin", 0x500)], raw_data[8], "c.bin/auto/0x1800/c.bin\nb.bin/auto/0x1000/b.bin\na.bin/0x1/0x800/a.bin", raw_fd_data=raw_fd_data[8])
+    test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x500),("b.bin",  0x600),("c.bin", 0x700)], raw_data[6], "b.bin?0x0?0x8000?b.bin", raw_fd_data=raw_fd_data[6])
+    test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x902),("b.bin", 0x1901),("c.bin", 0x700)], raw_data[7], "c.bin?0x0?0x3800?c.bin\nb.bin?0x1?auto?b.bin\na.bin?0x2?auto?a.bin", raw_fd_data=raw_fd_data[7])
+    test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x702),("b.bin",  0x601),("c.bin", 0x500)], raw_data[8], "c.bin?auto?0x1800?c.bin\nb.bin?auto?0x1000?b.bin\na.bin?0x1?0x800?a.bin", raw_fd_data=raw_fd_data[8])
 
     for tmp_conf in ["auto", "index", "offset", "mixed"]:
         afs_rebuild_conf["Default"]["files_rebuild_strategy"] = tmp_conf
-        test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x601),("b.bin",  0x702),("c.bin", 0x803)], raw_data[9], "0x800/0x2000\n0x3000/0x3000\n0x7000/0x1800", raw_fd_data=raw_fd_data[9])
+        test_rebuild_repack(afs_rebuild_conf, [("a.bin", 0x601),("b.bin",  0x702),("c.bin", 0x803)], raw_data[9], "0x800?0x2000\n0x3000?0x3000\n0x7000?0x1800", raw_fd_data=raw_fd_data[9])
 
 print("###############################################################################")
 print("# Cleaning test folders.")
