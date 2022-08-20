@@ -36,7 +36,8 @@ Pack doesn't update the original FD names. This file is used during pack to auto
 * there is a FD with duplicated filenames, extracted files with duplicated names use "filename **(N)**.ext" with N:Integer,
 * there is no FD, files are named with their index, for instance: "00000000" for the first file.
 
-Each lines of this csv contains a couple of "index/unpacked_filename". You can use it to rename unpacked files, for instance: "0/my_new_filename.ext".
+Each lines of this csv contains a couple of "index?unpacked_filename". You can use it to rename unpacked files, for instance:
+* 0?my_new_filename.ext
 
 ## afs_rebuild.conf
 All offsets and indexes are stored in hexadecimal with **0x** prefix: 0xabcdef. Use **auto** value when it's possible.
