@@ -78,7 +78,11 @@ The conf file system.conf allow to force somes values and patch sys/files and al
 * **DebugMonitorSize** = 0x0 _# Hex value: 0xabcdef aligned to 32 bytes._
 * **SimulatedMemorySize** = 0x1800000 _# Hex value: 0xabcdef aligned to 32 bytes._
 * **ArgumentOffset** = 0x0 _# Hex value: 0xabcdef_
-* **DebugFlag** = 0 _# Numeric value: 123. Set this to 0 when not using the any debugger on GDEV, set to 3 when using the CodeWarrior debugger on EV._
+* **DebugFlag** = 0 _# Numeric value: 123. Following values could change._
+** 0,1,5,6,7: normal boot
+** 2: Devkit set to : 0, MetroTRK : Set to AMC DDH hardware
+** 3: Devkit set to : 1, MetroTRK : Set to GDEV hardware
+** 4: Devkit set to : 2, MetroTRK : Set to BBA
 * **TrackLocation** = 0x0 _# Hex value: 0xabcdef_
 * **TrackSize** = 0x0 _# Hex value: 0xabcdef_
 * **CountryCode** = 2 _# Numeric value: 123 - Japan=0, USA=1, PAL=2, SouthKorea=4_
