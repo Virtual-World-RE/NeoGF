@@ -11,7 +11,7 @@ import shutil
 from time import time
 
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -473,7 +473,7 @@ test_config_pack("boot.bin", "GameCode", "ABCD")
 bootbin_expected_data[4:6] = b"EF"
 test_config_pack("boot.bin", "MakerCode", "EF")
 bootbin_expected_data[6:7] = b"\x05"
-test_config_pack("boot.bin", "DiskNumber", "5")
+test_config_pack("boot.bin", "DiscNumber", "5")
 bootbin_expected_data[7:8] = b"\x12"
 test_config_pack("boot.bin", "GameVersion", "18")
 bootbin_expected_data[8:9] = b"\x01"
@@ -527,7 +527,7 @@ test_config_pack("bi2.bin", "TrackSize", "0x95823145")
 bi2bin_expected_data[0x18:0x1c] = b"\x00\x00\x00\x04"
 test_config_pack("bi2.bin", "CountryCode", "4")
 bi2bin_expected_data[0x1c:0x20] = b"\x00\x00\x00\x45"
-test_config_pack("bi2.bin", "TotalDisk", "45")
+test_config_pack("bi2.bin", "TotalDisc", "45")
 bi2bin_expected_data[0x20:0x24] = b"\x00\x00\x00\x01"
 test_config_pack("bi2.bin", "LongFileNameSupport", "1")
 bi2bin_expected_data[0x20:0x24] = b"\x00\x00\x00\x00"
@@ -578,7 +578,7 @@ def test_conf_pack_except(section:str, var_name:str, value):
 
 test_conf_pack_except("boot.bin", "GameCode", "abcde")
 test_conf_pack_except("boot.bin", "MakerCode", "abc")
-test_conf_pack_except("boot.bin", "DiskNumber", "99")
+test_conf_pack_except("boot.bin", "DiscNumber", "99")
 test_conf_pack_except("boot.bin", "GameVersion", "100")
 test_conf_pack_except("boot.bin", "AudioStreaming", "2")
 test_conf_pack_except("boot.bin", "StreamBufferSize", "16")
@@ -613,8 +613,8 @@ test_conf_pack_except("bi2.bin", "TrackSize", "231")
 test_conf_pack_except("bi2.bin", "TrackSize", "0x180000000")
 test_conf_pack_except("bi2.bin", "CountryCode", "3")
 test_conf_pack_except("bi2.bin", "CountryCode", "5")
-test_conf_pack_except("bi2.bin", "TotalDisk", "100")
-test_conf_pack_except("bi2.bin", "TotalDisk", "0x5")
+test_conf_pack_except("bi2.bin", "TotalDisc", "100")
+test_conf_pack_except("bi2.bin", "TotalDisc", "0x5")
 test_conf_pack_except("bi2.bin", "LongFileNameSupport", "3")
 test_conf_pack_except("bi2.bin", "DolLimit", "231")
 test_conf_pack_except("bi2.bin", "DolLimit", "0x180000000")
