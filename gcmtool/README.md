@@ -60,7 +60,7 @@ The conf file system.conf allow to force somes values and patch sys/files and al
 
 * **GameCode** = GG4P _# 4 bytes ascii value - A-Za-z0-9_
 * **MakerCode** = 08 _# 2 bytes ascii value - A-Za-z0-9_
-* **DiskNumber** = 0 _# Disk number information for multiple disks. The number starts from 0. 0-98_
+* **DiscNumber** = 0 _# Disc number information for multiple discs. The number starts from 0. 0-98_
 * **GameVersion** = 0 _# The version number of the video game. 0-99_
 * **AudioStreaming** = 1 _# The flag for the streaming mode. 1 for streaming mode, otherwise 0._
 * **StreamBufferSize** = 0 _# Number of Streaming buffers. 0-15_
@@ -86,7 +86,7 @@ The conf file system.conf allow to force somes values and patch sys/files and al
 * **TrackLocation** = 0x0 _# Hex value: 0xabcdef_
 * **TrackSize** = 0x0 _# Hex value: 0xabcdef_
 * **CountryCode** = 2 _# Numeric value: 123 - Japan=0, USA=1, PAL=2, SouthKorea=4_
-* **TotalDisk** = 1 _# Numeric value: 1-99_
+* **TotalDisc** = 1 _# Numeric value: 1-99_
 * **LongFileNameSupport** = 1 _# Numeric value. Set to 1 for long file name support; set to 0 to restrict file to 8.3 format._
 * **DolLimit** = 0x0 _# Hex value: 0xabcdef_
 
