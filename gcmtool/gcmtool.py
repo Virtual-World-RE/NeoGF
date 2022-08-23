@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __author__ = "rigodron, algoflash, GGLinnk"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -293,7 +293,7 @@ class FstTree(Fst):
 
 class BootBin:
     """
-    BootBin describe the Disk Header "boot.bin" file at the beginning of 
+    BootBin describe the Disc Header "boot.bin" file at the beginning of 
     the GCM/iso. It groups all operations related to the boot.bin system 
     file extracted in sys/boot.bin. Using this class avoid errors on offsets
     and makes it easier to get or set values.
@@ -311,7 +311,7 @@ class BootBin:
     def make_mut(self):           self.__data = bytearray(self.__data)
     def game_code(self):          return self.__data[:4].decode("ascii")
     def maker_code(self):         return self.__data[4:6].decode("ascii")
-    def disk_number(self):        return int.from_bytes(self.__data[6:7], 'big')
+    def disc_number(self):        return int.from_bytes(self.__data[6:7], 'big')
     def game_version(self):       return int.from_bytes(self.__data[7:8], 'big')
     def audio_streaming(self):    return int.from_bytes(self.__data[8:9], 'big')
     def stream_buffer_size(self): return int.from_bytes(self.__data[9:0xa], 'big')
@@ -327,8 +327,8 @@ class BootBin:
         self.__data[:4] = bytes(game_code, "ascii")
     def set_maker_code(self, maker_code:str):
         self.__data[4:6] = bytes(maker_code, "ascii")
-    def set_disk_number(self, disk_number:int):
-        self.__data[6:7] = disk_number.to_bytes(1, "big")
+    def set_disc_number(self, disc_number:int):
+        self.__data[6:7] = disc_number.to_bytes(1, "big")
     def set_game_version(self, game_version:int):
         self.__data[7:8] = game_version.to_bytes(1, "big")
     def set_audio_streaming(self, audio_streaming:int):
@@ -355,7 +355,7 @@ class BootBin:
 
 class Bi2Bin:
     """
-    Bi2Bin describe the Disk Header Information "bi2.bin" file at the 
+    Bi2Bin describe the Disc Header Information "bi2.bin" file at the 
     beginning of the GCM/iso after boot.bin. It groups all operations
     related to the bi2.bin system file extracted in sys/bi2.bin. Using 
     this class avoid errors on offsets and makes it easier to get or set 
@@ -375,7 +375,7 @@ class Bi2Bin:
     def track_location(self):         return int.from_bytes(self.__data[16:20], "big")
     def track_size(self):             return int.from_bytes(self.__data[20:24], "big")
     def country_code(self):           return int.from_bytes(self.__data[24:28], "big")
-    def total_disk(self):             return int.from_bytes(self.__data[28:32], "big")
+    def total_disc(self):             return int.from_bytes(self.__data[28:32], "big")
     def long_file_name_support(self): return int.from_bytes(self.__data[32:36], "big")
     def dol_limit(self):              return int.from_bytes(self.__data[40:44], "big")
     def set_debug_monitor_size(self, debug_monitor_size:int):
@@ -392,8 +392,8 @@ class Bi2Bin:
         self.__data[20:24] = track_size.to_bytes(4, "big")
     def set_country_code(self, country_code:int):
         self.__data[24:28] = country_code.to_bytes(4, "big")
-    def set_total_disk(self, total_disk:int):
-        self.__data[28:32] = total_disk.to_bytes(4, "big")
+    def set_total_disc(self, total_disc:int):
+        self.__data[28:32] = total_disc.to_bytes(4, "big")
     def set_long_file_name_support(self, long_file_name_support:int):
         self.__data[32:36] = long_file_name_support.to_bytes(4, "big")
     def set_dol_limit(self, dol_limit:int):
@@ -441,8 +441,8 @@ class Gcm:
     APPLOADER_OFFSET = 0x2440
     APPLOADERLEN_OFFSET = 0x2454
     DVD_MAGIC = b"\xC2\x33\x9F\x3D"
-    __bootbin = None # Disk header
-    __bi2bin = None  # Disk header Information
+    __bootbin = None # Disc header
+    __bi2bin = None  # Disc header Information
     __apploaderimg = None
     __hex_pattern = re.compile("^0x[0-9a-fA-F]+$")
     def __save_conf(self, sys_path:Path):
@@ -459,7 +459,7 @@ class Gcm:
         config.add_section("boot.bin")
         config.set("boot.bin", "GameCode",         self.__bootbin.game_code()) # 4 bytes ASCII
         config.set("boot.bin", "MakerCode",        self.__bootbin.maker_code()) # 2 bytes ASCII
-        config.set("boot.bin", "DiskNumber",       str(self.__bootbin.disk_number())) # 0-98
+        config.set("boot.bin", "DiscNumber",       str(self.__bootbin.disc_number())) # 0-98
         config.set("boot.bin", "GameVersion",      str(self.__bootbin.game_version())) # 0-99
         config.set("boot.bin", "AudioStreaming",   str(self.__bootbin.audio_streaming())) # 0 or 1 flag
         config.set("boot.bin", "StreamBufferSize", str(self.__bootbin.stream_buffer_size())) # 0-15
@@ -481,7 +481,7 @@ class Gcm:
         config.set("bi2.bin", "TrackLocation",       f"0x{self.__bi2bin.track_location():x}")
         config.set("bi2.bin", "TrackSize",           f"0x{self.__bi2bin.track_size():x}")
         config.set("bi2.bin", "CountryCode",         str(self.__bi2bin.country_code())) # 0, 1, 2, 4
-        config.set("bi2.bin", "TotalDisk",           str(self.__bi2bin.total_disk())) # 1-99
+        config.set("bi2.bin", "TotalDisc",           str(self.__bi2bin.total_disc())) # 1-99
         config.set("bi2.bin", "LongFileNameSupport", str(self.__bi2bin.long_file_name_support())) # 0, 1
         config.set("bi2.bin", "DolLimit",            f"0x{self.__bi2bin.dol_limit():x}")
 
@@ -519,11 +519,11 @@ class Gcm:
                     raise InvalidConfValueError(f"Error - Invalid [{conf[0]}][{conf[1]}]: must be hex - 0xabcdef.")
 
         check_numeric_format(config, [
-            ("boot.bin", "DiskNumber"),
+            ("boot.bin", "DiscNumber"),
             ("boot.bin", "GameVersion"),
             ("boot.bin", "StreamBufferSize"),
             ("bi2.bin", "DebugFlag"),
-            ("bi2.bin", "TotalDisk")])
+            ("bi2.bin", "TotalDisc")])
 
         check_hex_format(config, [
             ("boot.bin", "DVDMagic",           False),
@@ -563,10 +563,10 @@ class Gcm:
                 raise InvalidConfValueError("Error - Invalid [boot.bin][MakerCode]: must be str with length = 2.")
             self.__bootbin.set_maker_code( config["boot.bin"]["MakerCode"] )
             
-            disk_number = int(config["boot.bin"]["DiskNumber"])
-            if disk_number > 98:
-                raise InvalidConfValueError("Error - Invalid [boot.bin][DiskNumber]: must be int with value < 99.")
-            self.__bootbin.set_disk_number( disk_number )
+            disc_number = int(config["boot.bin"]["DiscNumber"])
+            if disc_number > 98:
+                raise InvalidConfValueError("Error - Invalid [boot.bin][DiscNumber]: must be int with value < 99.")
+            self.__bootbin.set_disc_number( disc_number )
 
             game_version = int(config["boot.bin"]["GameVersion"])
             if game_version > 99:
@@ -667,9 +667,9 @@ class Gcm:
                 raise InvalidConfValueError("Error - Invalid [bi2.bin][CountryCode]: must have 0, 1, 2 or 4 value.")
             self.__bi2bin.set_country_code( int(config["bi2.bin"]["CountryCode"]) )
 
-            if int(config["bi2.bin"]["TotalDisk"]) > 99:
-                raise InvalidConfValueError("Error - Invalid [bi2.bin][TotalDisk]: must between 1 and 99.")
-            self.__bi2bin.set_total_disk( int(config["bi2.bin"]["TotalDisk"], 16) )
+            if int(config["bi2.bin"]["TotalDisc"]) > 99:
+                raise InvalidConfValueError("Error - Invalid [bi2.bin][TotalDisc]: must between 1 and 99.")
+            self.__bi2bin.set_total_disc( int(config["bi2.bin"]["TotalDisc"], 16) )
 
             if config["bi2.bin"]["LongFileNameSupport"] not in ["0", "1"]:
                 raise InvalidConfValueError("Error - Invalid [bi2.bin][LongFileNameSupport]: must be 0 or 1.")
@@ -761,7 +761,7 @@ class Gcm:
             bootdol_data = dolheader_data + iso_file.read( dol_len - Dol.HEADER_LEN )
 
             if folder_path == Path("."):
-                folder_path = Path(f"{self.__bootbin.game_code()}-{self.__bootbin.disk_number():02}")
+                folder_path = Path(f"{self.__bootbin.game_code()}-{self.__bootbin.disc_number():02}")
             if folder_path.is_dir():
                 raise InvalidUnpackFolderError(f"Error - \"{folder_path}\" already exist. Remove this folder or use another name for the unpack folder.")
             
@@ -1069,7 +1069,7 @@ class Gcm:
             "[boot.bin]\n" + \
             f"GameCode = {self.__bootbin.game_code()}\n" + \
             f"MakerCode = {self.__bootbin.maker_code()}\n" + \
-            f"DiskNumber = {self.__bootbin.disk_number()}\n" + \
+            f"DiscNumber = {self.__bootbin.disc_number()}\n" + \
             f"GameVersion = {self.__bootbin.game_version()}\n" + \
             f"AudioStreaming = {self.__bootbin.audio_streaming()}\n" + \
             f"StreamBufferSize = {self.__bootbin.stream_buffer_size()}\n" + \
@@ -1089,7 +1089,7 @@ class Gcm:
             f"TrackLocation = 0x{self.__bi2bin.track_location():x}\n" + \
             f"TrackSize = 0x{self.__bi2bin.track_size():x}\n" + \
             f"CountryCode = {self.__bi2bin.country_code()}\n" + \
-            f"TotalDisk = {self.__bi2bin.total_disk()}\n" + \
+            f"TotalDisc = {self.__bi2bin.total_disc()}\n" + \
             f"LongFileNameSupport = {self.__bi2bin.long_file_name_support()}\n" + \
             f"DolLimit = 0x{self.__bi2bin.dol_limit():x}\n\n" + \
             "[apploader.img]\n" + \
