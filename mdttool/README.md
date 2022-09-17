@@ -11,6 +11,7 @@ mdttool.py --unpack source_mdt.mdt optional_dest_folder --charset EU
 Pack **source_folder** in the default new file _source_folder.mdt_. If optional_dest_file.mdt is specified we pack in _optional_dest_file.mdt_.
 ```
 mdttool.py --pack source_folder optional_dest_file.mdt
+```
 
 ## Extracted file tree
 In the unpacked folder we find:
