@@ -18,3 +18,5 @@ In the unpacked folder we find:
 * 0_N.txt - Correspond to the paragraphs block N with N starting from 0.
 * conf.txt - Used for a correct repack. Don't edit this file.
 * charset.tpl - The extracted TPL containing symbols textures.
+
+Each txt file separate paragraphs with "\n--------------------------------\n" string. You can change txt but keep separator for a correct packing.
