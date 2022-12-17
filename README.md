@@ -17,7 +17,10 @@ Python3 script for unpack/pack/rebuild AFS file format. Rebuild of Table of cont
 Python3 script for manipuling dol file format. This tool can stats with all informations from dol header and patch dol .text and .data using a list of write Action Replay code in an formated .ini file.
 
 #### pzztool
-Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archive. MDT files are also handled by pzztool.py. Handle also ARZ files decompression.
+Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archive. Handle also ARZ files decompression.
+
+#### mdttool
+Python3 script for unpack/pack MDT file format. Allow to edit texts files extracted. MIT License.
 
 #### data
 CSV and datas for Gotcha Force game.
