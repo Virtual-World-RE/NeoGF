@@ -22,7 +22,7 @@ Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archiv
 #### mdttool
 Python3 script for unpack/pack MDT file format. Allow to edit texts files extracted. MIT License.
 
-#### mdttool
+#### mottool
 Python3 script for unpack/pack MOT file format. Currently under development. MIT License.
 
 #### data
