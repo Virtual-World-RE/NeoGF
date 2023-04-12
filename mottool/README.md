@@ -1,5 +1,5 @@
 # mottool.py
-Python3 script for unpack/pack MOT file format. Currently under development. Unit tests are not implemented yet. MIT License.
+Python3 script for unpack/pack MOT file format. MIT License.
 
 ## User manual
 Unpack **source_mot.bin** in the default new folder _source_mot_.
