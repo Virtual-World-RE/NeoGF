@@ -23,7 +23,7 @@ Python3 script for unpack/repack unpzz/pzz and uncompress/compress of PZZ archiv
 Python3 script for unpack/pack MDT file format. Allow to edit texts files extracted. MIT License.
 
 #### mottool
-Python3 script for unpack/pack MOT file format. Currently under development. MIT License.
+Python3 script for unpack/pack MOT file format. MIT License.
 
 #### data
 CSV and datas for Gotcha Force game.
