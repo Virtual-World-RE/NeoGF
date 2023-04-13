@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 
 
-__version__ = "0.0.18"
+__version__ = "0.0.19"
 __author__ = "rigodron, algoflash, GGLinnk, CrystalPixel"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -41,10 +41,10 @@ class MotFile:
             folder_path.mkdir(parents=True)
             logging.debug(f"Total of groups: {len(self.__groups_offsets):02}")
             for group_index, group_offset in enumerate(self.__groups_offsets):
-                group_path = folder_path / f"{group_index:02}"
-                group_path.mkdir()
                 if group_offset == 0:
                     continue
+                group_path = folder_path / f"{group_index:02}"
+                group_path.mkdir()
 
                 motions_offsets = []
                 motfile_file.seek(group_offset)
@@ -72,10 +72,12 @@ class MotFile:
         ""
         logging.info(f"Packing {folder_path} in {motfile_path}...")
 
-        groups_count = len(list(folder_path.glob("*")))
+        groups_count = int(list(folder_path.glob("*"))[-1].name) + 1
         group_motion_len_list = [[]] * groups_count
 
         for group_index in range(groups_count):
+            if not (folder_path / f"{group_index:02}").is_dir():
+                continue
             motions_count = len(list((folder_path / f"{group_index:02}").glob("*")))
             if motions_count == 0:
                 continue
