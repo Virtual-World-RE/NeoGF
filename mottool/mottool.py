@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 
 
-__version__ = "0.0.19"
+__version__ = "0.0.20"
 __author__ = "rigodron, algoflash, GGLinnk, CrystalPixel"
 __license__ = "MIT"
 __status__ = "developpement"
@@ -22,32 +22,38 @@ def align(offset:int, align:int):
 
 
 class MotFile:
-    "Unpack and pack motions in the motFile."
+    "Unpack and pack groups of motions in the motFile."
     __groups_offsets = None
     __GROUPS_HEADER_LEN = 0x40
     __TOTAL_HEADER_ALIGN = 0x20
     __MOTION_FILE_ALIGN = 0x20
     def unpack(self, motfile_path:Path, folder_path:Path):
-        ""
+        """
+            Unpack read the global groups_header and each group_header to unpack group and theirs motions in theirs folders.
+            * groups_header has a fixed length of 0x20
+            * each group_header is -1 terminated and the all header block is aligned to 0x20
+            * each motion file is aligned to 0x20
+        """
         logging.info(f"Unpacking {motfile_path} in {folder_path}...")
         
+        self.__groups_offsets = []
         with motfile_path.open("rb") as motfile_file:
-            self.__groups_offsets = []
-
             for _ in range(self.__GROUPS_HEADER_LEN // 4):
-                group_offset = int.from_bytes(motfile_file.read(4), "big")
-                self.__groups_offsets.append(group_offset)
+                group_header_offset = int.from_bytes(motfile_file.read(4), "big")
+                self.__groups_offsets.append(group_header_offset)
 
             folder_path.mkdir(parents=True)
             logging.debug(f"Total of groups: {len(self.__groups_offsets):02}")
-            for group_index, group_offset in enumerate(self.__groups_offsets):
-                if group_offset == 0:
+            for group_index, group_header_offset in enumerate(self.__groups_offsets):
+                # For each non-empty group we create theirs folder with theirs 2 digits index name.
+                if group_header_offset == 0:
                     continue
                 group_path = folder_path / f"{group_index:02}"
                 group_path.mkdir()
 
+                # Now we read the group_header and put all motions offsets in a list.
                 motions_offsets = []
-                motfile_file.seek(group_offset)
+                motfile_file.seek(group_header_offset)
 
                 last_motion_offset = int.from_bytes(motfile_file.read(4), "big")
                 while last_motion_offset != -1:
@@ -57,25 +63,34 @@ class MotFile:
                 for motion_index, motion_offset in enumerate(motions_offsets):
                     logging.debug(f"[unpacking] group: {group_index:02} motion: {motion_index:04}")
 
+                    # Now we extract each motion at theirs offsets for the current group.
+                    # We just create an empty file for null offsets to keep ending empty motion offsets in the group_header for repack.
                     new_motion_path = (group_path / f"{motion_index:04}").with_suffix(".mot")
                     if motion_offset == 0:
                         # We create an empty file.
                         new_motion_path.touch()
                         continue
 
+                    # The first uint32 of motion is the motion total length
                     motfile_file.seek(motion_offset)
                     motionfile_len = int.from_bytes(motfile_file.read(4), "big")
 
                     motfile_file.seek(motion_offset)
                     new_motion_path.write_bytes( motfile_file.read(motionfile_len) )
     def pack(self, folder_path:Path, motfile_path:Path):
-        ""
+        "Pack create the header and then pack files following to it."
         logging.info(f"Packing {folder_path} in {motfile_path}...")
+        # At first we have to count motions for each groups for creating and add length of -1 to the end of each group_header for aligning the header to 0x20 and get the first file offset.
+        # Then with the first file offset we can populate each group_header
 
+        # groups_count is the last folder index because groups_header can contains empty offsets.
         groups_count = int(list(folder_path.glob("*"))[-1].name) + 1
         group_motion_len_list = [[]] * groups_count
 
+        # group_motion_len_list contains a list of groups with a list of motions in each and the length of motion for each [group_index][motion_index].
+        # groups are initialized with empty list to track empty groups using len() 
         for group_index in range(groups_count):
+            # test if the group is empty
             if not (folder_path / f"{group_index:02}").is_dir():
                 continue
             motions_count = len(list((folder_path / f"{group_index:02}").glob("*")))
@@ -87,6 +102,7 @@ class MotFile:
                 group_motion_len_list[group_index][motion_index] = (folder_path / f"{group_index:02}" / f"{motion_index:04}").with_suffix(".mot").stat().st_size
                 logging.debug(f"group: {group_index:02} motion: {motion_index:04} len: {group_motion_len_list[group_index][motion_index]:08x}")
 
+        # We create groups_header with 0x20 fixed length.
         current_offset = self.__GROUPS_HEADER_LEN
         motfile_headers_data = b""
 
