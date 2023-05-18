@@ -14,4 +14,4 @@ USA Borgs csv was usefull to search values using scripts. Value has been retriev
 ## eu_borgs_GET_values.csv
 Credits to CrystalPixel.
 
-EU borgs [GET values](https://re.wiki.virtualworld.fr/index.php?title=Impl%C3%A9mentations#Borgs_GET_system).
+EU borgs [GET values](https://re.wiki.virtualworld.fr/index.php?title=Implementations#Borgs_GET_system).
